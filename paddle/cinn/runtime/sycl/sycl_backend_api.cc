@@ -50,6 +50,7 @@ Arch SYCLBackendAPI::Init(Arch arch) {
       this->devices.push_back(device);
     }
   }
+  std::cout << "devices size:" << this->devices.size() << std::endl;
   if (this->devices.size() == 0) {
     std::cerr << "No valid gpu device matched given arch:";
   }
@@ -58,6 +59,7 @@ Arch SYCLBackendAPI::Init(Arch arch) {
   // sycl::backend -> Target::Arch
   switch (backend) {
     case ::sycl::backend::ext_oneapi_hip:
+      std::cout << "HygonDCUArchHIP right" << std::endl;
       this->arch = common::HygonDCUArchSYCL{};
       break;
     default:
@@ -70,6 +72,10 @@ Arch SYCLBackendAPI::Init(Arch arch) {
 
 void SYCLBackendAPI::set_device(int device_id) {
   if (!initialized_) Init(common::UnknownArch{});
+  if (device_id < 0) {
+    std::cout << "set valid device id! device id:" << device_id << std::endl;
+    return ;
+  }
   if (device_id < 0) {
     LOG(FATAL) << "set valid device id! device id:" << device_id;
   } else if (device_id > this->devices.size() - 1) {
@@ -89,16 +95,23 @@ void SYCLBackendAPI::set_device(int device_id) {
     ::sycl::property_list q_prop{
         ::sycl::property::queue::in_order()};  // In order queue
     // create context and queue
+    std::cout << "create context and queue" << std::endl;
     this->contexts[device_id] =
         new ::sycl::context(this->devices[device_id], exception_handler);
     // one device one queue
+    std::cout << "create queue" << std::endl;
     this->queues[device_id].push_back(new ::sycl::queue(
         *this->contexts[device_id], this->devices[device_id], q_prop));
+    std::cout << "create queue over" << std::endl;
   }
   this->now_device_id = device_id;
 }
 
-int SYCLBackendAPI::get_device() { return this->now_device_id; }
+int SYCLBackendAPI::get_device() { 
+  std::cout << "use this function get device sycl::backend::api" << std::endl;
+  std::cout << "now_device_id:" << this->now_device_id << std::endl;
+  return this->now_device_id; 
+  }
 
 int SYCLBackendAPI::get_device_property(
     DeviceProperty device_property, std::optional<int> device_id) {

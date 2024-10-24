@@ -36,6 +36,7 @@ paddle/fluid/prim/api/generated_prim/*.h
 python/paddle/libs/bfloat16.h
 python/paddle/libs/cinn_cuda_runtime_source.cuh
 python/paddle/libs/float16.h
+paddle/cinn/hlir/dialect/operator/ir/cinn_op.cc
 *.DS_Store
 *.vs
 build/

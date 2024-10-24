@@ -48,9 +48,11 @@ std::optional<int> GetArchDevice(const common::Target& target) {
         return std::optional<int>{device_id};
       },
       [&](common::HygonDCUArchSYCL) -> std::optional<int> {
+        std::cout << "use this function  arch_device get arch device" << std::endl;
         int device_id =
             BackendAPI::get_backend(common::HygonDCUArchSYCL{})->get_device();
         return std::optional<int>{device_id};
+        std::cout << "get device id: " << device_id << std::endl;
       });
 }
 
