@@ -18,7 +18,7 @@
 #include <string>
 #include <vector>
 
-#include <sycl/sycl.hpp>
+#include <CL/sycl.hpp>
 
 namespace cinn {
 namespace runtime {

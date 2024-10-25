@@ -35,6 +35,11 @@
 #include "paddle/cinn/backends/hip/compiler_hip.h"
 #include "paddle/cinn/runtime/hip/hip_module.h"
 #endif
+#ifdef CINN_WITH_SYCL
+#include "paddle/cinn/backends/sycl/codegen_sycl_dev.h"
+#include "paddle/cinn/backends/sycl/compiler_sycl.h"
+#include "paddle/cinn/runtime/sycl/sycl_module.h"
+#endif
 #include "paddle/cinn/adt/adt.h"
 
 PD_DECLARE_string(cinn_source_code_save_path);
@@ -289,7 +294,17 @@ std::string Compiler::GetSourceCode(const ir::Module& module) {
 #endif
       },
       [&](common::HygonDCUArchSYCL) -> std::string {
-
+#ifdef CINN_WITH_SYCL
+        auto _host_module_device_module_ =
+            SplitDeviceAndHostModule(module);  // NOLINT
+        auto& host_module = std::get<0>(_host_module_device_module_);
+        auto& device_module = std::get<1>(_host_module_device_module_);
+        CodeGenSYCL_Dev codegen(target_);
+        auto source_code = codegen.Compile(device_module);
+        return source_code;
+#else
+        CINN_NOT_IMPLEMENTED
+#endif
       });
 }
 
@@ -396,7 +411,8 @@ void Compiler::RegisterHipModuleSymbol() {
 }
 
 void Compiler::RegisterSyclModuleSymbol() {
-
+  PADDLE_THROW(phi::errors::Unimplemented(
+            "CINN todo: new hardware HygonDCUArchSYCL"));
 }
 
 void Compiler::CompileCudaModule(const Module& module,
@@ -477,7 +493,39 @@ void Compiler::CompileHipModule(const Module& module, const std::string& code) {
 }
 
 void Compiler::CompileSyclModule(const Module& module, const std::string& code) {
-  
+#ifdef CINN_WITH_SYCL
+  auto _host_module_device_module_ =
+      SplitDeviceAndHostModule(module);  // NOLINT
+  auto& host_module = std::get<0>(_host_module_device_module_);
+  auto& device_module = std::get<1>(_host_module_device_module_);
+  VLOG(3) << "[SYCL] host module:\n" << host_module;
+  VLOG(3) << "[SYCL] device module:\n" << device_module;
+  std::string source_code;
+  if (!FLAGS_cinn_debug_custom_code_path.empty()) {
+    std::string file_path = FLAGS_cinn_debug_custom_code_path;
+    source_code = GetFileContent(file_path);
+  } else if (code.empty()) {
+    CodeGenSYCL_Dev codegen(target_);
+    source_code = codegen.Compile(device_module);
+  } else {
+    source_code = code;
+  }
+  PADDLE_ENFORCE_EQ(
+      !source_code.empty(),
+      true,
+      ::common::errors::Fatal("Compile SYCL code failed from device module:\n%s",
+                              device_module));
+  VLOG(3) << "[SYCL]:\n" << source_code;
+  SourceCodePrint::GetInstance()->write(source_code);
+  device_fn_code_ += source_code;
+  for (auto& fn : device_module.functions()) {
+    std::string kernel_fn_name = fn->name;
+    device_fn_name_.emplace_back(kernel_fn_name);
+  }
+  engine_->Link<CodeGenGpuHost>(host_module);
+#else
+  CINN_NOT_IMPLEMENTED
+#endif
 }
 
 void Compiler::CompileX86Module(const Module& module) {

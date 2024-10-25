@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include <sycl/sycl.hpp>
+#include <CL/sycl.hpp>
 #include <vector>
 #include "paddle/cinn/common/target.h"
 #include "paddle/cinn/runtime/backend_api.h"

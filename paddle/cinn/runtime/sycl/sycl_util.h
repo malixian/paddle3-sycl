@@ -18,7 +18,7 @@
 #include <string>
 #include <vector>
 
-#include <sycl/sycl.hpp>
+#include <CL/sycl.hpp>
 
 #ifdef CINN_WITH_CNNL
 #include <cnrt.h>

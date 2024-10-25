@@ -15,7 +15,7 @@
 #pragma once
 
 #include <limits>
-#include <sycl/sycl.hpp>
+#include <CL/sycl.hpp>
 // using sycl::ext::oneapi::bfloat16;
 
 // #define CINN_SYCL_FP16

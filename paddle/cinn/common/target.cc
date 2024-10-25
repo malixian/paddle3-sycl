@@ -363,6 +363,12 @@ const Target &DefaultHygonDcuSyclTarget() {
 const Target &DefaultDeviceTarget() {
 #ifdef CINN_WITH_CUDA
   return DefaultNVGPUTarget();
+<<<<<<< HEAD
+=======
+
+#elif defined(CINN_WITH_HIP)
+  return DefaultHygonDcuHipTarget();
+>>>>>>> b9fcedb1596d3760b5ac23a50700172e38b0011d
 #elif defined(CINN_WITH_SYCL)
   return DefaultHygonDcuSyclTarget();
 #elif defined(CINN_WITH_HIP)
@@ -404,6 +410,12 @@ int GetMaxBlocks() {
 const Target &DefaultTarget() {
 #ifdef CINN_WITH_CUDA
   return DefaultNVGPUTarget();
+<<<<<<< HEAD
+=======
+
+#elif defined(CINN_WITH_HIP)
+  return DefaultHygonDcuHipTarget();
+>>>>>>> b9fcedb1596d3760b5ac23a50700172e38b0011d
 #elif defined(CINN_WITH_SYCL)
   return DefaultHygonDcuSyclTarget();
 #elif defined(CINN_WITH_HIP)

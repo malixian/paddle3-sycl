@@ -25,6 +25,9 @@
 #ifdef CINN_WITH_HIP
 #include "paddle/cinn/backends/hip/codegen_hip_dev.h"
 #endif
+#ifdef CINN_WITH_SYCL
+#include "paddle/cinn/backends/sycl/codegen_sycl_dev.h"
+#endif
 #include "paddle/cinn/cinn.h"
 #include "paddle/cinn/ir/ir.h"
 #include "paddle/cinn/ir/ir_mutator.h"
@@ -141,7 +144,12 @@ struct CollectHostFunctionVisitor : public ir::IRMutator<> {
 #endif
         },
         [&](common::HygonDCUArchSYCL) {
-
+#ifdef CINN_WITH_SYCL
+          CodeGenSYCL_Dev codegen_dev(
+              cinn::common::DefaultHygonDcuSyclTarget());
+          codegen_dev.Compile(ir::LoweredFunc(func));
+          //shared_mem_bytes = codegen_dev.GetDynSharedMemOffset();
+#endif
         });
 
     VLOG(6) << "Add a call node for func->name " << func->name << "\n"

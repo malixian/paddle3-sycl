@@ -25,7 +25,9 @@ SYCLBackendAPI* SYCLBackendAPI::Global() {
 
 Arch SYCLBackendAPI::Init(Arch arch) {
   if (initialized_) return this->arch;
+  std::cout << "get device begin" << std::endl;
   auto devices = ::sycl::device::get_devices(::sycl::info::device_type::gpu);
+  std::cout << "get device end" << std::endl;
   if (devices.size() == 0) {
     std::cerr << "No valid gpu device found!";
   }
