@@ -42,7 +42,7 @@ class Compiler {
    * @param code The SYCL source code.
    * @return Compiled shared library path.
    */
-  std::string operator()(const std::string& code, const Arch gpu_type);
+  std::string operator()(const std::string& code);
 
  private:
   /**

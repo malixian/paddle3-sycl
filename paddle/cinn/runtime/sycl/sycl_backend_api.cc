@@ -25,9 +25,7 @@ SYCLBackendAPI* SYCLBackendAPI::Global() {
 
 Arch SYCLBackendAPI::Init(Arch arch) {
   if (initialized_) return this->arch;
-  std::cout << "get device begin" << std::endl;
   auto devices = ::sycl::device::get_devices(::sycl::info::device_type::gpu);
-  std::cout << "get device end" << std::endl;
   if (devices.size() == 0) {
     std::cerr << "No valid gpu device found!";
   }
@@ -47,12 +45,13 @@ Arch SYCLBackendAPI::Init(Arch arch) {
         backend = ::sycl::backend::ext_oneapi_hip;
       });
   // look for matched devices
-  for (auto device : devices) {
-    if (device.get_backend() == backend) {
-      this->devices.push_back(device);
+  if(this->devices.size() < 8) {
+    for (auto device : devices) {
+      if (device.get_backend() == backend) {
+          this->devices.push_back(device);
+      }
     }
   }
-  std::cout << "devices size:" << this->devices.size() << std::endl;
   if (this->devices.size() == 0) {
     std::cerr << "No valid gpu device matched given arch:";
   }
@@ -61,7 +60,6 @@ Arch SYCLBackendAPI::Init(Arch arch) {
   // sycl::backend -> Target::Arch
   switch (backend) {
     case ::sycl::backend::ext_oneapi_hip:
-      std::cout << "HygonDCUArchHIP right" << std::endl;
       this->arch = common::HygonDCUArchSYCL{};
       break;
     default:
@@ -97,21 +95,16 @@ void SYCLBackendAPI::set_device(int device_id) {
     ::sycl::property_list q_prop{
         ::sycl::property::queue::in_order()};  // In order queue
     // create context and queue
-    std::cout << "create context and queue" << std::endl;
     this->contexts[device_id] =
         new ::sycl::context(this->devices[device_id], exception_handler);
     // one device one queue
-    std::cout << "create queue" << std::endl;
     this->queues[device_id].push_back(new ::sycl::queue(
         *this->contexts[device_id], this->devices[device_id], q_prop));
-    std::cout << "create queue over" << std::endl;
   }
   this->now_device_id = device_id;
 }
 
 int SYCLBackendAPI::get_device() { 
-  std::cout << "use this function get device sycl::backend::api" << std::endl;
-  std::cout << "now_device_id:" << this->now_device_id << std::endl;
   return this->now_device_id; 
   }
 
@@ -252,9 +245,10 @@ std::string SYCLBackendAPI::GetGpuVersion() {
   ::sycl::backend backend = device.get_backend();
   switch (backend) {
     case ::sycl::backend::ext_oneapi_hip: {
-      std::string gpu_version = device.get_info<::sycl::info::device::version>();
-      size_t pos = gpu_version.find(":");
-      if (pos != std::string::npos) gpu_version = gpu_version.substr(0, pos);
+      // std::string gpu_version = device.get_info<::sycl::info::device::version>();
+      // size_t pos = gpu_version.find(":");
+      // if (pos != std::string::npos) gpu_version = gpu_version.substr(0, pos);
+      std::string gpu_version = "gfx906";
       return gpu_version;
     }
     default:

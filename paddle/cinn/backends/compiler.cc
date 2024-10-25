@@ -411,8 +411,36 @@ void Compiler::RegisterHipModuleSymbol() {
 }
 
 void Compiler::RegisterSyclModuleSymbol() {
-  PADDLE_THROW(phi::errors::Unimplemented(
-            "CINN todo: new hardware HygonDCUArchSYCL"));
+  #ifdef CINN_WITH_SYCL
+  syclrtc::Compiler compiler;
+  std::string source_code =
+      CodeGenSYCL_Dev::GetSourceHeader() + device_fn_code_;
+  std::string hsaco = compiler(source_code);
+  PADDLE_ENFORCE_EQ(
+      !hsaco.empty(),
+      true,
+      ::common::errors::Fatal("Compile hsaco failed from source code:\n%s",
+                              source_code));
+  using runtime::sycl::SYCLModule;
+  sycl_module_.reset(new SYCLModule(source_code, hsaco, SYCLModule::Kind::so));
+  // get device id
+  using cinn::runtime::BackendAPI;
+  int device_id = BackendAPI::get_backend(target_)->get_device();
+  // register kernel
+  RuntimeSymbols symbols;
+  for (const auto& kernel_fn_name : device_fn_name_) {
+    auto fn_kernel = sycl_module_->GetFunction(kernel_fn_name);
+    PADDLE_ENFORCE_NOT_NULL(
+        fn_kernel,
+        ::common::errors::Fatal("HIP GetFunction Error: get valid kernel."));
+    fn_ptr_.push_back(reinterpret_cast<void*>(fn_kernel));
+    symbols.RegisterVar(kernel_fn_name + "_ptr_",
+                        reinterpret_cast<void*>(fn_kernel));
+  }
+  engine_->RegisterModuleRuntimeSymbols(std::move(symbols));
+#else
+  CINN_NOT_IMPLEMENTED
+#endif
 }
 
 void Compiler::CompileCudaModule(const Module& module,
