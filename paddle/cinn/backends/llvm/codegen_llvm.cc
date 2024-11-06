@@ -356,7 +356,7 @@ llvm::Value *CodeGenLLVM::Visit(const ir::Min *op) {
   auto *lhs = Visit(&op->a());
   auto *rhs = Visit(&op->b());
 
-  llvm::Value *p{nullptr};
+ llvm::Value *p{nullptr};
   if (op->type().is_int()) {
     p = ICmpSLT(lhs, rhs);
   } else if (op->type().is_uint()) {
