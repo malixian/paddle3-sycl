@@ -145,10 +145,10 @@ struct CollectHostFunctionVisitor : public ir::IRMutator<> {
         },
         [&](common::HygonDCUArchSYCL) {
 #ifdef CINN_WITH_SYCL
-          CodeGenSYCL_Dev codegen_dev(
+          sycl::CodeGenSyclDevice codegen_dev(
               cinn::common::DefaultHygonDcuSyclTarget());
           codegen_dev.Compile(ir::LoweredFunc(func));
-          //shared_mem_bytes = codegen_dev.GetDynSharedMemOffset();
+      // shared_mem_bytes = codegen_dev.GetDynSharedMemOffset();
 #endif
         });
 

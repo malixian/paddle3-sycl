@@ -60,8 +60,7 @@ Target::Target(OS o,
                PADDLE_THROW(::common::errors::Unimplemented(
                    "Please recompile with flag CINN_WITH_SYCL and WITH_CINN."));
 #endif
-             }
-             );
+             });
 }
 
 bool Target::operator==(const Target &other) const {
@@ -271,7 +270,7 @@ std::string Target::arch_str() const {
 }
 
 std::string Target::device_name_str() const {
-  #ifdef CINN_WITH_CUDA
+#ifdef CINN_WITH_CUDA
   int device_idx = 0;
   cudaError_t result = cudaGetDevice(&device_idx);
   if (result != cudaSuccess) {
@@ -295,7 +294,7 @@ std::string Target::device_name_str() const {
   std::string device_name = properties.name;
   device_name = std::regex_replace(device_name, std::regex(" "), "_");
   return std::regex_replace(device_name, std::regex("-"), "_");
-  #endif
+#endif
 }
 
 std::ostream &operator<<(std::ostream &os, const Target &target) {
@@ -363,8 +362,8 @@ const Target &DefaultHygonDcuSyclTarget() {
 const Target &DefaultDeviceTarget() {
 #ifdef CINN_WITH_CUDA
   return DefaultNVGPUTarget();
-// #elif defined(CINN_WITH_SYCL)
-//   return DefaultHygonDcuSyclTarget();
+#elif defined(CINN_WITH_SYCL)
+  return DefaultHygonDcuSyclTarget();
 #elif defined(CINN_WITH_HIP)
   return DefaultHygonDcuHipTarget();
 #endif
@@ -404,8 +403,8 @@ int GetMaxBlocks() {
 const Target &DefaultTarget() {
 #ifdef CINN_WITH_CUDA
   return DefaultNVGPUTarget();
-// #elif defined(CINN_WITH_SYCL)
-//   return DefaultHygonDcuSyclTarget();
+#elif defined(CINN_WITH_SYCL)
+  return DefaultHygonDcuSyclTarget();
 #elif defined(CINN_WITH_HIP)
   return DefaultHygonDcuHipTarget();
 #else

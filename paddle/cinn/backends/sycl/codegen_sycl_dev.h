@@ -18,14 +18,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "paddle/cinn/backends/codegen_c.h"
-#include "paddle/cinn/common/common.h"
-#include "paddle/cinn/ir/ir.h"
-#include "paddle/cinn/ir/ir_printer.h"
-#include "paddle/cinn/ir/lowered_func.h"
-#include "paddle/cinn/ir/module.h"
-#include "paddle/cinn/lang/packed_func.h"
-#include "paddle/cinn/runtime/cinn_runtime.h"
+#include "paddle/cinn/backends/codegen_gpu_dev.h"
 
 namespace cinn::ir {
 class Module;
@@ -33,6 +26,7 @@ class Module;
 
 namespace cinn {
 namespace backends {
+namespace sycl {
 
 /**
  * SYCL device code generator.
@@ -43,9 +37,9 @@ namespace backends {
  * which finally similar to `__global__ void myadd(float* __restrict__ A, float*
  * __restrict__ B, int n);`
  */
-class CodeGenSYCL_Dev : public CodeGenC {
+class CodeGenSyclDevice : public CodeGenGpuDev {
  public:
-  explicit CodeGenSYCL_Dev(Target target);
+  explicit CodeGenSyclDevice(Target target);
 
   /**
    * Compile the \p module to \p outputs.
@@ -55,10 +49,8 @@ class CodeGenSYCL_Dev : public CodeGenC {
   //! Compile on syclrtc.
   std::string Compile(const ir::Module& module, bool for_syclrtc = true);
 
-  void Compile(const ir::LoweredFunc& func);
-
   std::string Compile(const ir::Module& module, OutputKind output_kind);
-
+  void Compile(const ir::LoweredFunc& func);
   static const std::string& GetSourceHeader();
 
  protected:
@@ -66,27 +58,11 @@ class CodeGenSYCL_Dev : public CodeGenC {
   void Visit(const ir::_LoweredFunc_* op) override;
   void Visit(const ir::Min* op) override;
   void Visit(const ir::Max* op) override;
-  void Visit(const ir::Alloc* op) override;
   void Visit(const ir::Call* op) override;
-  void Visit(const ir::Load* op) override;
-  void Visit(const ir::Store* op) override;
-  void Visit(const ir::Let* op) override;
-
-  // Print element access at a cuda built-in vector on a load/store node
-  bool PrintBuiltinVectorAccess(const ir::LoadStoreAddrMnger* op,
-                                ir::Expr index,
-                                bool is_store);
-
-  void PrintBuiltinCodes();
 
   void PrintIncludes() override;
 
   void PrintTempBufferCreation(const ir::Buffer& buffer);
-
-  void PrintTempBufferAliasDefinition(const ir::Buffer& buffer);
-
-  std::vector<Expr> GenerateBufferAliasExprs(
-      const ir::_LoweredFunc_* op, const std::vector<ir::Buffer>& temp_buffers);
 
   /**
    * Print the function declaration, this is different from C, we expand the
@@ -100,13 +76,10 @@ class CodeGenSYCL_Dev : public CodeGenC {
  private:
   // generate unique kernel name, which is namespace + op->name.
   std::string GenerateKernelName(const ir::_LoweredFunc_* op);
-  Target target_;
   bool for_syclrtc_{false};
-  // names of vectorized tensors from `Let` statments where dtypes of the
-  // tensors are customized_type with customized_type::kcuda_builtin_vector_t
-  // prefix
-  std::unordered_set<std::string> vectorized_tensor_names_;
+  static const std::string source_header_;
 };
 
+}  // namespace sycl
 }  // namespace backends
 }  // namespace cinn

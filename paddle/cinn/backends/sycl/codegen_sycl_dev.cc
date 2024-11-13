@@ -29,71 +29,66 @@ using cinn::backends::syclrtc::NUM;
 
 namespace cinn {
 namespace backends {
+namespace sycl {
 
-const std::string &CodeGenSYCL_Dev::GetSourceHeader() {
-  static std::string source_header =
-      R"(#include <sycl/sycl.hpp>
-#include "cinn_sycl_runtime_source.h"
-typedef sycl::half float16;
+const std::string CodeGenSyclDevice::source_header_ =  // NOLINT
+    R"(#include <sycl/sycl.hpp>
+    #include "cinn_sycl_runtime_source.h"
+    typedef sycl::half float16;
 )";
-  return source_header;
-}
 
-CodeGenSYCL_Dev::CodeGenSYCL_Dev(Target target) : CodeGenC(target) {}
-
-std::string CodeGenSYCL_Dev::Compile(const ir::Module &module,
-                                     bool for_syclrtc) {
+std::string CodeGenSyclDevice::Compile(const ir::Module &module,
+                                       bool for_syclrtc) {
   for_syclrtc_ = for_syclrtc;
   auto source = Compile(module, OutputKind::CImpl);
-
   return source;
 }
 
-void CodeGenSYCL_Dev::Compile(const ir::Module &module,
-                              const Outputs &outputs) {
-  PADDLE_THROW(::common::errors::Fatal("CINN_SYCL_codegen_NOT_IMPLEMENTED"));
+std::string CodeGenSyclDevice::Compile(const ir::Module &module,
+                                       CodeGenC::OutputKind output_kind) {
+  if (output_kind == OutputKind::CHeader) {
+    GenerateHeaderFile(module);
+  } else if (output_kind == OutputKind::CImpl) {
+    PrintIncludes();
+
+    if (for_syclrtc_) {
+      str_ += "#ifdef __cplusplus\n";
+      str_ += "extern \"C\" {\n";
+      str_ += "#endif\n";
+    }
+
+    PrintBuiltinCodes();
+
+    for (auto &func : module.functions()) {
+      Compile(func);
+    }
+  } else {
+    LOG(FATAL) << "Not supported OutputKind";
+  }
+
+  if (for_syclrtc_) {
+    str_ += "\n#ifdef __cplusplus\n";
+    str_ += "}\n";
+    str_ += "#endif\n";
+  }
+  return str_;
 }
 
-void CodeGenSYCL_Dev::Compile(const ir::LoweredFunc &func) {
+void CodeGenSyclDevice::Compile(const ir::Module &module,
+                                const Outputs &outputs) {
+  LOG(FATAL) << "CINN_SYCL_codegen_NOT_IMPLEMENTED";
+}
+
+void CodeGenSyclDevice::Compile(const ir::LoweredFunc &func) {
   IrPrinter::Visit(Expr(func));
 }
 
-std::vector<Expr> CodeGenSYCL_Dev::GenerateBufferAliasExprs(
-    const ir::_LoweredFunc_ *op, const std::vector<ir::Buffer> &temp_buffers) {
-  std::set<ir::Buffer> temp_buffer_set(temp_buffers.begin(),
-                                       temp_buffers.end());
-  // prepare temp buffer alias
-  std::vector<Expr> buffer_alias;
-  auto tensors = ir::ir_utils::CollectIRNodes(op->body, [&](const Expr *x) {
-    return x->as_tensor() && x->as_tensor()->buffer.defined() &&
-           temp_buffer_set.count(x->as_tensor()->buffer);
-  });
-
-  // unique tensors
-  std::set<ir::Tensor> unique_tensors;
-  for (auto &e : tensors) {
-    unique_tensors.insert(e.as_tensor_ref());
-  }
-
-  for (auto &t : unique_tensors) {
-    auto data_type = t->type();
-    auto data_ptr_type = data_type;
-    data_ptr_type.set_cpp_handle();
-
-    Var t_var(t->name, data_ptr_type);
-    Var buf_var(t->buffer->name, data_ptr_type);
-    buffer_alias.push_back(ir::Let::Make(t_var, buf_var));
-  }
-
-  return buffer_alias;
-}
-
-void CodeGenSYCL_Dev::Visit(const ir::_LoweredFunc_ *op) {
+void CodeGenSyclDevice::Visit(const ir::_LoweredFunc_ *op) {
   // clear names valid within scope when enter a new function
   vectorized_tensor_names_.clear();
 
   // Print the packed function
-  str_ += "// CodeGenSYCL: NOTE: Auto-generated packed function\n";
+  str_ += "// CodeGenSyclDevice: NOTE: Auto-generated packed function\n";
   str_ += "void ";
   str_ += op->name;
   str_ +=
@@ -144,7 +139,7 @@ void CodeGenSYCL_Dev::Visit(const ir::_LoweredFunc_ *op) {
   str_ += "}\n";
 }
 
-void CodeGenSYCL_Dev::Visit(const ir::_Var_ *op) {
+void CodeGenSyclDevice::Visit(const ir::_Var_ *op) {
   if (utils::StartsWith(op->name, "threadIdx") ||
       utils::StartsWith(op->name, "blockIdx")) {
     if (utils::StartsWith(op->name, "threadIdx")) {
@@ -165,15 +160,7 @@ void CodeGenSYCL_Dev::Visit(const ir::_Var_ *op) {
   }
 }
 
-void CodeGenSYCL_Dev::Visit(const ir::Alloc *op) {
-  PADDLE_ENFORCE_NE(
-      op->destination.as_buffer(),
-      nullptr,
-      ::common::errors::InvalidArgument("ir::Alloc's buffer cannot nullptr."));
-  PrintTempBufferCreation(op->destination.as_buffer_ref());
-}
-
-void CodeGenSYCL_Dev::Visit(const ir::Min *op) {
+void CodeGenSyclDevice::Visit(const ir::Min *op) {
   str_ += "sycl::min(";
   IrPrinter::Visit(op->a());
   str_ += ", ";
@@ -181,7 +168,7 @@ void CodeGenSYCL_Dev::Visit(const ir::Min *op) {
   str_ += ")";
 }
 
-void CodeGenSYCL_Dev::Visit(const ir::Max *op) {
+void CodeGenSyclDevice::Visit(const ir::Max *op) {
   str_ += "sycl::max(";
   IrPrinter::Visit(op->a());
   str_ += ", ";
@@ -189,7 +176,7 @@ void CodeGenSYCL_Dev::Visit(const ir::Max *op) {
   str_ += ")";
 }
 
-void CodeGenSYCL_Dev::PrintFunctionBody(const ir::_LoweredFunc_ *op) {
+void CodeGenSyclDevice::PrintFunctionBody(const ir::_LoweredFunc_ *op) {
   DoIndent();
 
   std::vector<Expr> new_body;
@@ -216,7 +203,7 @@ void CodeGenSYCL_Dev::PrintFunctionBody(const ir::_LoweredFunc_ *op) {
   IrPrinter::Visit(func_body);
 }
 
-void CodeGenSYCL_Dev::PrintFunctionDeclaration(const ir::_LoweredFunc_ *op) {
+void CodeGenSyclDevice::PrintFunctionDeclaration(const ir::_LoweredFunc_ *op) {
   for (int i = 0; i < op->args.size(); i++) {
     DoIndent();
     auto &arg = op->args[i];
@@ -250,45 +237,8 @@ void CodeGenSYCL_Dev::PrintFunctionDeclaration(const ir::_LoweredFunc_ *op) {
   }
 }
 
-void CodeGenSYCL_Dev::PrintBuiltinCodes() {}
-
-std::string CodeGenSYCL_Dev::Compile(const ir::Module &module,
-                                     CodeGenC::OutputKind output_kind) {
-  if (output_kind == OutputKind::CHeader) {
-    GenerateHeaderFile(module);
-  } else if (output_kind == OutputKind::CImpl) {
-    PrintIncludes();
-
-    if (for_syclrtc_) {
-      str_ += "#ifdef __cplusplus\n";
-      str_ += "extern \"C\" {\n";
-      str_ += "#endif\n";
-    }
-
-    PrintBuiltinCodes();
-
-    for (auto &func : module.functions()) {
-      Compile(func);
-    }
-  } else {
-    PADDLE_THROW(::common::errors::Fatal("Not supported OutputKind"));
-  }
-
-  if (for_syclrtc_) {
-    str_ += "\n#ifdef __cplusplus\n";
-    str_ += "}\n";
-    str_ += "#endif\n";
-  }
-  return str_;
-}
-
-void CodeGenSYCL_Dev::PrintIncludes() { str_ += GetSourceHeader(); }
-
-void CodeGenSYCL_Dev::PrintTempBufferCreation(const ir::Buffer &buffer) {
-  PADDLE_ENFORCE_NE(buffer->type(),
-                    Void(),
-                    ::common::errors::InvalidArgument(
-                        "Buffer type cannot be void in CodeGenSYCL_Dev"));
+void CodeGenSyclDevice::PrintTempBufferCreation(const ir::Buffer &buffer) {
+  CHECK_NE(buffer->type(), Void());
   auto print_gpu_memory = [&](const std::string &mark) {
     str_ += mark;
     str_ += GetTypeRepr(buffer->dtype);
@@ -309,7 +259,7 @@ void CodeGenSYCL_Dev::PrintTempBufferCreation(const ir::Buffer &buffer) {
     case ir::MemoryType::GPUShared: {
       str_ += "auto ";
       str_ += buffer->name;
-      str_ += " = *sycl::group_local_memory<";
+      str_ += " = *sycl::ext::oneapi::group_local_memory<";
       str_ += GetTypeRepr(buffer->dtype);
       str_ += "[ ";
       Expr buffer_size(1);
@@ -327,15 +277,12 @@ void CodeGenSYCL_Dev::PrintTempBufferCreation(const ir::Buffer &buffer) {
       break;
 
     default:
-      PADDLE_THROW(::common::errors::Fatal(
-          "SYCL device codegen not support memory %s, %s",
-          buffer->name,
-          buffer->memory_type));
+      LOG(FATAL) << "SYCL device codegen not support memory " << buffer->name
+                 << ", type " << buffer->memory_type;
   }
 }
 
-void CodeGenSYCL_Dev::Visit(const ir::Call *op) {
-  VLOG(3) << "CodeGenSYCL visiting call op: " << op->name;
+void CodeGenSyclDevice::Visit(const ir::Call *op) {
   if (op->name == "__syncthreads") {
     str_ += "sycl::group_barrier(item.get_group())";
     return;
@@ -388,105 +335,21 @@ void CodeGenSYCL_Dev::Visit(const ir::Call *op) {
   str_ += ")";
 }
 
-void CodeGenSYCL_Dev::Visit(const ir::Let *op) {
-  PADDLE_ENFORCE_EQ(
-      op->type().valid(),
-      true,
-      ::common::errors::InvalidArgument(
-          "ir::Let's op type cannot be valid in CodeGenSYCL_Dev"));
-
-  // identify vectorized tensors by checking their dtypes are customized_type
-  // with customized_type::kcuda_builtin_vector_t prefix, and save their names
-  if (op->type().is_customized() &&
-      utils::StartsWith(op->type().customized_type(),
-                        common::customized_type::kcuda_builtin_vector_t)) {
-    str_ += GetTypeRepr(op->type());
-    if (op->type().is_cpp_handle()) {
-      str_ += " ";
-      // str_ += kCKeywordRestrict;
-    }
-    str_ += " ";
-    IrPrinter::Visit(op->symbol);
-    vectorized_tensor_names_.insert(utils::GetStreamCnt(op->symbol));
-    // skip "=0" in "half8 temp = 0;" sincethe operator= of half8 may not
-    // overloaded.
-    if (op->body.As<ir::IntImm>() && op->body.As<ir::IntImm>()->value == 0) {
-      return;
-    }
-    str_ += " = ";
-    IrPrinter::Visit(op->body);
-  } else {
-    CodeGenC::Visit(op);
-  }
-}
-
-bool CodeGenSYCL_Dev::PrintBuiltinVectorAccess(const ir::LoadStoreAddrMnger *op,
-                                               ir::Expr index_expr,
-                                               bool is_store) {
-  static constexpr char index2suffix[8] = {
-      'x', 'y', 'z', 'w', 'v', 'u', 't', 's'};
-
-  // addr of op should be a place of tensor and the index is simple int number
-  if (!op->is_addr_tensor() || !index_expr.As<ir::IntImm>()) {
-    return false;
-  }
-  auto *tensor = op->tensor.As<ir::_Tensor_>();
-  PADDLE_ENFORCE_NE(tensor,
-                    nullptr,
-                    ::common::errors::InvalidArgument(
-                        "Tensor in CodeGenSYCL_Dev::PrintBuiltinVectorAccess "
-                        "cannot be NULL."));
-
-  // identify vectorized tensors by their names
-  if (!vectorized_tensor_names_.count(tensor->name)) {
-    return false;
-  }
-
-  // the index can't exceed the range of cuda built-in vector type
-  int index = index_expr.As<ir::IntImm>()->value;
-  if (index < 0 || index >= 8) {
-    return false;
-  }
-  if (is_store && tensor->type().is_cpp_handle()) {
-    str_ += tensor->name;
-    str_ += "[";
-    str_ += std::to_string(index);
-    str_ += "]";
-  } else {
-    str_ += tensor->name;
-    str_ += (tensor->type().is_cpp_handle() ? "->" : ".");
-    str_ += index2suffix[index];
-  }
-  return true;
-}
-
-void CodeGenSYCL_Dev::Visit(const ir::Load *op) {
-  // overload this visit function to especially deal with the case when it
-  // accesses element at a cuda built-in vector, others still resolve to
-  // CodeGenC
-  if (!PrintBuiltinVectorAccess(op, op->index(), false)) {
-    CodeGenC::Visit(op);
-  }
-}
-
-void CodeGenSYCL_Dev::Visit(const ir::Store *op) {
-  // overload this visit function to especially deal with the case when it
-  // accesses element at a cuda built-in vector, others still resolve to
-  // CodeGenC
-  if (PrintBuiltinVectorAccess(op, op->index(), true)) {
-    str_ += " = ";
-    IrPrinter::Visit(op->value);
-  } else {
-    CodeGenC::Visit(op);
-  }
-}
-
-std::string CodeGenSYCL_Dev::GenerateKernelName(const ir::_LoweredFunc_ *op) {
+std::string CodeGenSyclDevice::GenerateKernelName(const ir::_LoweredFunc_ *op) {
   std::string kernel_name = "space" + std::to_string(NUM::getNum());
   kernel_name += "_";
   kernel_name += op->name;
   return kernel_name;
 }
 
+const std::string &CodeGenSyclDevice::GetSourceHeader() {
+  return source_header_;
+}
+
+CodeGenSyclDevice::CodeGenSyclDevice(Target target) : CodeGenGpuDev(target) {}
+
+void CodeGenSyclDevice::PrintIncludes() { str_ += GetSourceHeader(); }
+
+}  // namespace sycl
 }  // namespace backends
 }  // namespace cinn

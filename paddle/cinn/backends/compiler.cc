@@ -299,7 +299,7 @@ std::string Compiler::GetSourceCode(const ir::Module& module) {
             SplitDeviceAndHostModule(module);  // NOLINT
         auto& host_module = std::get<0>(_host_module_device_module_);
         auto& device_module = std::get<1>(_host_module_device_module_);
-        CodeGenSYCL_Dev codegen(target_);
+        sycl::CodeGenSyclDevice codegen(target_);
         auto source_code = codegen.Compile(device_module);
         return source_code;
 #else
@@ -411,10 +411,10 @@ void Compiler::RegisterHipModuleSymbol() {
 }
 
 void Compiler::RegisterSyclModuleSymbol() {
-  #ifdef CINN_WITH_SYCL
+#ifdef CINN_WITH_SYCL
   syclrtc::Compiler compiler;
   std::string source_code =
-      CodeGenSYCL_Dev::GetSourceHeader() + device_fn_code_;
+      sycl::CodeGenSyclDevice::GetSourceHeader() + device_fn_code_;
   std::string hsaco = compiler(source_code);
   PADDLE_ENFORCE_EQ(
       !hsaco.empty(),
@@ -520,7 +520,8 @@ void Compiler::CompileHipModule(const Module& module, const std::string& code) {
 #endif
 }
 
-void Compiler::CompileSyclModule(const Module& module, const std::string& code) {
+void Compiler::CompileSyclModule(const Module& module,
+                                 const std::string& code) {
 #ifdef CINN_WITH_SYCL
   auto _host_module_device_module_ =
       SplitDeviceAndHostModule(module);  // NOLINT
@@ -533,7 +534,7 @@ void Compiler::CompileSyclModule(const Module& module, const std::string& code) 
     std::string file_path = FLAGS_cinn_debug_custom_code_path;
     source_code = GetFileContent(file_path);
   } else if (code.empty()) {
-    CodeGenSYCL_Dev codegen(target_);
+    sycl::CodeGenSyclDevice codegen(target_);
     source_code = codegen.Compile(device_module);
   } else {
     source_code = code;
@@ -541,8 +542,8 @@ void Compiler::CompileSyclModule(const Module& module, const std::string& code) 
   PADDLE_ENFORCE_EQ(
       !source_code.empty(),
       true,
-      ::common::errors::Fatal("Compile SYCL code failed from device module:\n%s",
-                              device_module));
+      ::common::errors::Fatal(
+          "Compile SYCL code failed from device module:\n%s", device_module));
   VLOG(3) << "[SYCL]:\n" << source_code;
   SourceCodePrint::GetInstance()->write(source_code);
   device_fn_code_ += source_code;
