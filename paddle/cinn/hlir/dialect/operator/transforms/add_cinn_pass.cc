@@ -135,7 +135,7 @@ void ApplyPdToCinnPass(
     const std::function<std::shared_ptr<::pir::PassManager>()>&
         CreatePassManager) {
   std::shared_ptr<pir::PassManager> pass_manager = CreatePassManager();
-  pass_manager->AddPass(pir::CreateFusedGemmEpiloguePass());
+  //pass_manager->AddPass(pir::CreateFusedGemmEpiloguePass());
   if (FLAGS_enable_fuse_parallel_matmul_pass) {
     pass_manager->AddPass(cinn::dialect::ir::CreateFuseParallelMatmulPass());
   }

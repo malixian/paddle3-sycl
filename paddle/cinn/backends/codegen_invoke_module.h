@@ -84,6 +84,13 @@ class CodeGenSwitchHost : public CodeGenInvokeModule {
             return LowerInnerCaseCall(op);
           }
         },
+        [&](common::HygonDCUArchSYCL) -> llvm::Value *{
+          if (op->name == runtime::intrinsic::get_value_in_hip_kernel_args) {
+            return CodeGenLLVM::Visit(op);
+          } else {
+            return LowerInnerCaseCall(op);
+          }
+        },
         [&](std::variant<common::UnknownArch,
                          common::X86Arch,
                          common::ARMArch>) -> llvm::Value * { CINN_NOT_IMPLEMENTED; });
