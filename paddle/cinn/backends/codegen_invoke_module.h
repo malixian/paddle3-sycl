@@ -16,9 +16,9 @@
 
 #include <memory>
 
+#include <variant>
 #include "paddle/cinn/backends/llvm/codegen_llvm.h"
 #include "paddle/cinn/runtime/intrinsic.h"
-#include <variant>
 
 namespace cinn {
 namespace backends {
@@ -70,30 +70,29 @@ class CodeGenSwitchHost : public CodeGenInvokeModule {
   // only support call of args get function and inner case host function call
   llvm::Value *Visit(const ir::Call *op) override {
     return common::DefaultDeviceTarget().arch.Match(
-        [&](common::NVGPUArch) -> llvm::Value *{
+        [&](common::NVGPUArch) -> llvm::Value * {
           if (op->name == runtime::intrinsic::get_value_in_cuda_kernel_args) {
             return CodeGenLLVM::Visit(op);
           } else {
             return LowerInnerCaseCall(op);
           }
         },
-        [&](common::HygonDCUArchHIP) -> llvm::Value *{
+        [&](common::HygonDCUArchHIP) -> llvm::Value * {
           if (op->name == runtime::intrinsic::get_value_in_hip_kernel_args) {
             return CodeGenLLVM::Visit(op);
           } else {
             return LowerInnerCaseCall(op);
           }
         },
-        [&](common::HygonDCUArchSYCL) -> llvm::Value *{
-          if (op->name == runtime::intrinsic::get_value_in_hip_kernel_args) {
+        [&](common::HygonDCUArchSYCL) -> llvm::Value * {
+          if (op->name == runtime::intrinsic::get_value_in_sycl_kernel_args) {
             return CodeGenLLVM::Visit(op);
           } else {
             return LowerInnerCaseCall(op);
           }
         },
-        [&](std::variant<common::UnknownArch,
-                         common::X86Arch,
-                         common::ARMArch>) -> llvm::Value * { CINN_NOT_IMPLEMENTED; });
+        [&](std::variant<common::UnknownArch, common::X86Arch, common::ARMArch>)
+            -> llvm::Value * { CINN_NOT_IMPLEMENTED; });
   }
 
  private:

@@ -97,6 +97,14 @@ Expr Optimize(Expr e,
       },
       [&](common::HygonDCUArchSYCL) {
 #ifdef CINN_WITH_SYCL
+        if (copied.as_lowered_func()) {
+          ir::SetCudaAxisInfo(&copied);
+        }
+        if (remove_gpu_for_loops) {
+          RemoveGpuForloopsAxis(&copied);
+        }
+        CudaSyncThreadsDropIfThenElse(&copied);
+    // CudaTransBufferWithDynamicShape(&copied);
 #endif
       });
 

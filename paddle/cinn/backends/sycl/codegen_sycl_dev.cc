@@ -332,6 +332,15 @@ void CodeGenSyclDevice::Visit(const ir::Call *op) {
     str_ += ", item";
   }
 
+  if ((op->name.find("cinn_partial_block_reduce") != std::string::npos) ||
+      (op->name.find("cinn_partial_warp_reduce") != std::string::npos)) {
+    str_ += ", item";
+  }
+
+  if (op->name.find("cinn_discrete_reduce") != std::string::npos) {
+    str_ += ", item";
+  }
+
   str_ += ")";
 }
 

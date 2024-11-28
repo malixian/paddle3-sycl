@@ -23,8 +23,8 @@ SYCLBackendAPI* SYCLBackendAPI::Global() {
   return inst;
 }
 
-Arch SYCLBackendAPI::Init(Arch arch) {
-  if (initialized_) return this->arch;
+void SYCLBackendAPI::Init(Arch arch) {
+  if (initialized_) return;
   auto devices = ::sycl::device::get_devices(::sycl::info::device_type::gpu);
   if (devices.size() == 0) {
     std::cerr << "No valid gpu device found!";
@@ -32,23 +32,23 @@ Arch SYCLBackendAPI::Init(Arch arch) {
   // Target::Arch -> sycl::backend
   ::sycl::backend backend;
   arch.Match(
-      [&](common::UnknownArch){
-          SYCL_CALL(backend =
-                   ::sycl::device::get_devices(::sycl::info::device_type::gpu)[0]
-                       .get_backend()); 
+      [&](common::UnknownArch) {
+        SYCL_CALL(backend = ::sycl::device::get_devices(
+                                ::sycl::info::device_type::gpu)[0]
+                                .get_backend());
       },
-      [&](common::X86Arch) { },
-      [&](common::ARMArch) { },
-      [&](common::NVGPUArch) { },
-      [&](common::HygonDCUArchHIP) { },
-      [&](common::HygonDCUArchSYCL){
+      [&](common::X86Arch) {},
+      [&](common::ARMArch) {},
+      [&](common::NVGPUArch) {},
+      [&](common::HygonDCUArchHIP) {},
+      [&](common::HygonDCUArchSYCL) {
         backend = ::sycl::backend::ext_oneapi_hip;
       });
   // look for matched devices
-  if(this->devices.size() < 8) {
+  if (this->devices.size() < 8) {
     for (auto device : devices) {
       if (device.get_backend() == backend) {
-          this->devices.push_back(device);
+        this->devices.push_back(device);
       }
     }
   }
@@ -63,19 +63,13 @@ Arch SYCLBackendAPI::Init(Arch arch) {
       this->arch = common::HygonDCUArchSYCL{};
       break;
     default:
-      std::cerr << "SYCL Not supported arch:";
+      LOG(FATAL) << "SYCL Not supported this backend \n";
   }
   initialized_ = true;
-  set_device(0);
-  return this->arch;
 }
 
 void SYCLBackendAPI::set_device(int device_id) {
   if (!initialized_) Init(common::UnknownArch{});
-  if (device_id < 0) {
-    std::cout << "set valid device id! device id:" << device_id << std::endl;
-    return ;
-  }
   if (device_id < 0) {
     LOG(FATAL) << "set valid device id! device id:" << device_id;
   } else if (device_id > this->devices.size() - 1) {
@@ -104,42 +98,50 @@ void SYCLBackendAPI::set_device(int device_id) {
   this->now_device_id = device_id;
 }
 
-int SYCLBackendAPI::get_device() { 
-  return this->now_device_id; 
-  }
+int SYCLBackendAPI::get_device() { return this->now_device_id; }
 
-int SYCLBackendAPI::get_device_property(
-    DeviceProperty device_property, std::optional<int> device_id) {
+int SYCLBackendAPI::get_device_property(DeviceProperty device_property,
+                                        std::optional<int> device_id) {
   int index = device_id.value_or(this->now_device_id);
   int rv = -1;
 
   switch (device_property) {
     case DeviceProperty::MaxBlockDimX: {
-      rv = 101;
+      ::sycl::_V1::id<3> max_work_item_sizes =
+          this->devices[index]
+              .get_info<::sycl::_V1::info::device::max_work_item_sizes<3>>();
+      rv = max_work_item_sizes[0];
       break;
     }
     case DeviceProperty::MaxBlockDimY: {
-      rv = 101;
+      ::sycl::_V1::id<3> max_work_item_sizes =
+          this->devices[index]
+              .get_info<::sycl::_V1::info::device::max_work_item_sizes<3>>();
+      rv = max_work_item_sizes[1];
       break;
     }
     case DeviceProperty::MaxBlockDimZ: {
-      rv = 101;
+      ::sycl::_V1::id<3> max_work_item_sizes =
+          this->devices[index]
+              .get_info<::sycl::_V1::info::device::max_work_item_sizes<3>>();
+      rv = max_work_item_sizes[2];
       break;
     }
     case DeviceProperty::MaxGridDimX: {
-      rv = 101;
+      rv = 2097151;
       break;
     }
     case DeviceProperty::MaxGridDimY: {
-      rv = 101;
+      rv = 2097151;
       break;
     }
     case DeviceProperty::MaxGridDimZ: {
-      rv = 101;
+      rv = 2097151;
       break;
     }
     case DeviceProperty::MaxSharedMemoryPerBlock: {
-      rv = this->devices[index].get_info<::sycl::info::device::local_mem_size>();
+      rv =
+          this->devices[index].get_info<::sycl::info::device::local_mem_size>();
       break;
     }
     case DeviceProperty::MaxThreadsPerBlock: {
@@ -163,15 +165,14 @@ int SYCLBackendAPI::get_device_property(
     }
     case DeviceProperty::WarpSize: {
       std::vector<size_t> sub_group_sizes =
-          this->devices[index].get_info<::sycl::info::device::sub_group_sizes>();
+          this->devices[index]
+              .get_info<::sycl::info::device::sub_group_sizes>();
       size_t max_sub_group_size =
           *max_element(std::begin(sub_group_sizes), std::end(sub_group_sizes));
       rv = static_cast<int>(max_sub_group_size);
     }
     default:
-      // PADDLE_THROW(
-      //     ::common::errors::InvalidArgument("Not supported device property!"));
-      std::cout << "error!" << std::endl;
+      LOG(FATAL) << "Not supported device property!";
   }
   return rv;
 }
@@ -180,8 +181,8 @@ void* SYCLBackendAPI::malloc(size_t numBytes) {
   VLOG(3) << "sycl malloc";
   void* dev_mem = nullptr;
   SYCL_CALL(dev_mem = ::sycl::malloc_device(numBytes,
-                                          this->devices[now_device_id],
-                                          *this->contexts[now_device_id]));
+                                            this->devices[now_device_id],
+                                            *this->contexts[now_device_id]));
   if (dev_mem == nullptr)
     LOG(ERROR) << "allocate sycl device memory failure!" << std::endl;
   return dev_mem;
@@ -245,9 +246,10 @@ std::string SYCLBackendAPI::GetGpuVersion() {
   ::sycl::backend backend = device.get_backend();
   switch (backend) {
     case ::sycl::backend::ext_oneapi_hip: {
-      // std::string gpu_version = device.get_info<::sycl::info::device::version>();
-      // size_t pos = gpu_version.find(":");
-      // if (pos != std::string::npos) gpu_version = gpu_version.substr(0, pos);
+      // std::string gpu_version =
+      // device.get_info<::sycl::info::device::version>(); size_t pos =
+      // gpu_version.find(":"); if (pos != std::string::npos) gpu_version =
+      // gpu_version.substr(0, pos);
       std::string gpu_version = "gfx906";
       return gpu_version;
     }
@@ -256,26 +258,25 @@ std::string SYCLBackendAPI::GetGpuVersion() {
   }
 }
 
-std::array<int, 3> SYCLBackendAPI::get_max_grid_dims(
-    std::optional<int> device_id) {
-    std::array<int, 3> kMaxGridDims;
-    int index = device_id.value_or(this->now_device_id);
-    kMaxGridDims = std::array<int, 3>{2097151, 2097151, 2097151};
-    // ::sycl::id<3> max_work_item_sizes =
-    //       this->devices[index]
-    //           .get_info<::sycl::_V1::info::device::max_work_item_sizes>();
-    //   kMaxGridDims = std::array<int, 3>{max_work_item_sizes[2],
-    //                           max_work_item_sizes[1],
-    //                           max_work_item_sizes[0]};
-  return kMaxGridDims;
-}
-
 std::array<int, 3> SYCLBackendAPI::get_max_block_dims(
     std::optional<int> device_id) {
   std::array<int, 3> kMaxBlockDims;
-  kMaxBlockDims = std::array<int, 3>{2097151, 2097151, 2097151};
+  int index = device_id.value_or(this->now_device_id);
+  ::sycl::_V1::id<3> max_work_item_sizes =
+      this->devices[index]
+          .get_info<::sycl::_V1::info::device::max_work_item_sizes<3>>();
+  kMaxBlockDims = std::array<int, 3>{
+      max_work_item_sizes[2], max_work_item_sizes[1], max_work_item_sizes[0]};
   return kMaxBlockDims;
 }
+
+std::array<int, 3> SYCLBackendAPI::get_max_grid_dims(
+    std::optional<int> device_id) {
+  std::array<int, 3> kMaxGridDims;
+  kMaxGridDims = std::array<int, 3>{2097151, 2097151, 2097151};
+  return kMaxGridDims;
+}
+
 }  // namespace sycl
 }  // namespace runtime
 }  // namespace cinn

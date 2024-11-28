@@ -21,8 +21,8 @@
 #include <CL/sycl.hpp>
 
 #ifdef CINN_WITH_CNNL
-#include <cnrt.h>
 #include <cnnl.h>
+#include <cnrt.h>
 #endif
 
 namespace cinn {
@@ -45,144 +45,156 @@ void cinn_call_sycl_kernel(void* kernel_fn,
                            int block_y,
                            int block_z);
 
-void cinn_call_sycl_memset(void* v_args,
-                           int num_args,
-                           int value,
-                           size_t count);
+void cinn_call_sycl_memset(void* v_args, int num_args, int value, size_t count);
 
-void cinn_call_sycl_memcpy(void *v_args,
-                           int num_args,
-                           size_t count);
+void cinn_call_sycl_memcpy(void* v_args, int num_args, size_t count);
+
+int64_t cinn_get_value_in_sycl_kernel_args(void* v_args, int idx);
+
+void* cinn_get_item_in_sycl_kernel_args(void* v_args, int idx);
 
 #ifdef CINN_WITH_CNNL
-#define CNRT_CALL(func)                                     \
-  {                                                         \
-    auto status = func;                                     \
-    if (status != cnrtSuccess) {                            \
-      std::stringstream ss;                                 \
-      ss << "CNRT Error : " << cnrtGetErrorStr(status);     \
-      PADDLE_THROW(phi::errors::Fatal(ss.str()));           \
-    }                                                       \
+#define CNRT_CALL(func)                                 \
+  {                                                     \
+    auto status = func;                                 \
+    if (status != cnrtSuccess) {                        \
+      std::stringstream ss;                             \
+      ss << "CNRT Error : " << cnrtGetErrorStr(status); \
+      PADDLE_THROW(phi::errors::Fatal(ss.str()));       \
+    }                                                   \
   }
 
-#define CNNL_CALL(func)                                     \
-  {                                                         \
-    auto status = func;                                     \
-    if (status != CNNL_STATUS_SUCCESS) {                    \
-      std::stringstream ss;                                 \
-      ss << "CNNL Error : " << cnnlGetErrorString(status);  \
-      PADDLE_THROW(phi::errors::Fatal(ss.str()));           \
-    }                                                       \
+#define CNNL_CALL(func)                                    \
+  {                                                        \
+    auto status = func;                                    \
+    if (status != CNNL_STATUS_SUCCESS) {                   \
+      std::stringstream ss;                                \
+      ss << "CNNL Error : " << cnnlGetErrorString(status); \
+      PADDLE_THROW(phi::errors::Fatal(ss.str()));          \
+    }                                                      \
   }
 
-void cinn_call_cnnl_gaussian_random(void* v_args,
-                               int num_args,
-                               float mean,
-                               float std,
-                               int seed);
+void cinn_call_cnnl_gaussian_random(
+    void* v_args, int num_args, float mean, float std, int seed);
 
-void cinn_call_cnnl_uniform_random(void* v_args,
-                              int num_args,
-                              float min,
-                              float max,
-                              int seed);
+void cinn_call_cnnl_uniform_random(
+    void* v_args, int num_args, float min, float max, int seed);
 
-void cinn_call_cnnl_randint(void* v_args,
-                       int num_args,
-                       int seed);
+void cinn_call_cnnl_randint(void* v_args, int num_args, int seed);
 
 void cinn_call_cnnl_matmul(void* v_args,
-                      int num_args,
-                      bool trans_a,
-                      bool trans_b,
-                      bool trans_o,
-                      float alpha,
-                      float beta,
-                      int a1,
-                      int a2,
-                      int a3,
-                      int a4,
-                      int b1,
-                      int b2,
-                      int b3,
-                      int b4);
+                           int num_args,
+                           bool trans_a,
+                           bool trans_b,
+                           bool trans_o,
+                           float alpha,
+                           float beta,
+                           int a1,
+                           int a2,
+                           int a3,
+                           int a4,
+                           int b1,
+                           int b2,
+                           int b3,
+                           int b4);
 
 void cinn_call_cnnl_conv2d_forward(void* v_args,
-                                    int num_args,
-                                    int format,
-                                    float alpha,
-                                    float beta,
-                                    int input_n,
-                                    int input_c,
-                                    int input_h,
-                                    int input_w,
-                                    int filter_n,
-                                    int filter_c,
-                                    int filter_h,
-                                    int filter_w,
-                                    int pad_h,
-                                    int pad_w,
-                                    int stride_h,
-                                    int stride_w,
-                                    int dilation_h,
-                                    int dilation_w,
-                                    int groups,
-                                    int output_n,
-                                    int output_c,
-                                    int output_h,
-                                    int output_w);
+                                   int num_args,
+                                   int format,
+                                   float alpha,
+                                   float beta,
+                                   int input_n,
+                                   int input_c,
+                                   int input_h,
+                                   int input_w,
+                                   int filter_n,
+                                   int filter_c,
+                                   int filter_h,
+                                   int filter_w,
+                                   int pad_h,
+                                   int pad_w,
+                                   int stride_h,
+                                   int stride_w,
+                                   int dilation_h,
+                                   int dilation_w,
+                                   int groups,
+                                   int output_n,
+                                   int output_c,
+                                   int output_h,
+                                   int output_w);
 
 void cinn_call_cnnl_conv2d_backward_data(void* v_args,
-                                          int num_args,
-                                          int format,
-                                          float alpha,
-                                          float beta,
-                                          int input_n,
-                                          int input_c,
-                                          int input_h,
-                                          int input_w,
-                                          int filter_n,
-                                          int filter_c,
-                                          int filter_h,
-                                          int filter_w,
-                                          int pad_h,
-                                          int pad_w,
-                                          int stride_h,
-                                          int stride_w,
-                                          int dilation_h,
-                                          int dilation_w,
-                                          int groups,
-                                          int output_n,
-                                          int output_c,
-                                          int output_h,
-                                          int output_w);
+                                         int num_args,
+                                         int format,
+                                         float alpha,
+                                         float beta,
+                                         int input_n,
+                                         int input_c,
+                                         int input_h,
+                                         int input_w,
+                                         int filter_n,
+                                         int filter_c,
+                                         int filter_h,
+                                         int filter_w,
+                                         int pad_h,
+                                         int pad_w,
+                                         int stride_h,
+                                         int stride_w,
+                                         int dilation_h,
+                                         int dilation_w,
+                                         int groups,
+                                         int output_n,
+                                         int output_c,
+                                         int output_h,
+                                         int output_w);
 
 void cinn_call_cnnl_conv2d_backward_filter(void* v_args,
-                                            int num_args,
-                                            int format,
-                                            float alpha,
-                                            float beta,
-                                            int input_n,
-                                            int input_c,
-                                            int input_h,
-                                            int input_w,
-                                            int filter_n,
-                                            int filter_c,
-                                            int filter_h,
-                                            int filter_w,
-                                            int pad_h,
-                                            int pad_w,
-                                            int stride_h,
-                                            int stride_w,
-                                            int dilation_h,
-                                            int dilation_w,
-                                            int groups,
-                                            int output_n,
-                                            int output_c,
-                                            int output_h,
-                                            int output_w);
+                                           int num_args,
+                                           int format,
+                                           float alpha,
+                                           float beta,
+                                           int input_n,
+                                           int input_c,
+                                           int input_h,
+                                           int input_w,
+                                           int filter_n,
+                                           int filter_c,
+                                           int filter_h,
+                                           int filter_w,
+                                           int pad_h,
+                                           int pad_w,
+                                           int stride_h,
+                                           int stride_w,
+                                           int dilation_h,
+                                           int dilation_w,
+                                           int groups,
+                                           int output_n,
+                                           int output_c,
+                                           int output_h,
+                                           int output_w);
 
 void cinn_call_cnnl_pool2d_forward(void* v_args,
+                                   int num_args,
+                                   int mode,
+                                   int format,
+                                   float alpha,
+                                   float beta,
+                                   int input_n,
+                                   int input_c,
+                                   int input_h,
+                                   int input_w,
+                                   int kernel_h,
+                                   int kernel_w,
+                                   int pad_h,
+                                   int pad_w,
+                                   int stride_h,
+                                   int stride_w,
+                                   int output_n,
+                                   int output_c,
+                                   int output_h,
+                                   int output_w);
+
+void cinn_call_cnnl_pool2d_backward(void* v_args,
                                     int num_args,
                                     int mode,
                                     int format,
@@ -202,28 +214,7 @@ void cinn_call_cnnl_pool2d_forward(void* v_args,
                                     int output_c,
                                     int output_h,
                                     int output_w);
-
-void cinn_call_cnnl_pool2d_backward(void* v_args,
-                                     int num_args,
-                                     int mode,
-                                     int format,
-                                     float alpha,
-                                     float beta,
-                                     int input_n,
-                                     int input_c,
-                                     int input_h,
-                                     int input_w,
-                                     int kernel_h,
-                                     int kernel_w,
-                                     int pad_h,
-                                     int pad_w,
-                                     int stride_h,
-                                     int stride_w,
-                                     int output_n,
-                                     int output_c,
-                                     int output_h,
-                                     int output_w);
-#endif // CINN_WITH_CNNL
+#endif  // CINN_WITH_CNNL
 
 }  // namespace sycl
 }  // namespace runtime

@@ -433,6 +433,22 @@ CINN_REGISTER_HELPER(sycl_intrinsics) {
 }
 
 CINN_REGISTER_HELPER(cinn_sycl_host_api) {
+  using cinn::runtime::sycl::cinn_get_value_in_sycl_kernel_args;
+  REGISTER_EXTERN_FUNC_HELPER(cinn_get_value_in_sycl_kernel_args,
+                              cinn::common::DefaultHostTarget())
+      .SetRetType<int64_t>()
+      .AddInputType<void *>()  // args
+      .AddInputType<int>()     // index
+      .End();
+
+  using cinn::runtime::sycl::cinn_get_item_in_sycl_kernel_args;
+  REGISTER_EXTERN_FUNC_HELPER(cinn_get_item_in_sycl_kernel_args,
+                              cinn::common::DefaultHostTarget())
+      .SetRetType<void *>()
+      .AddInputType<void *>()  // args
+      .AddInputType<int>()     // index
+      .End();
+
   using cinn::runtime::sycl::cinn_call_sycl_kernel;
   REGISTER_EXTERN_FUNC_HELPER(cinn_call_sycl_kernel,
                               cinn::common::DefaultHostTarget())
@@ -660,7 +676,7 @@ CINN_REGISTER_HELPER(cinn_sycl_host_api) {
       .AddInputType<int>()     // oh
       .AddInputType<int>()     // ow
       .End();
-#endif // CINN_WITH_CNNL
+#endif  // CINN_WITH_CNNL
 
   GlobalSymbolRegistry::Global().RegisterFn(
       "backend_api.sycl", reinterpret_cast<void *>(SYCLBackendAPI::Global()));

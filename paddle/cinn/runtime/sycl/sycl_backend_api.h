@@ -64,15 +64,14 @@ inline const char* SYCLGetErrorString(std::error_code error_code) {
  * \brief Protected SYCL call
  * \param func Expression to call.
  */
-#define SYCL_CALL(func)                                     \
-  {                                                         \
-    try {                                                   \
-      func;                                                 \
-    } catch (const ::sycl::exception& e) {                    \
-      LOG(FATAL)  << "SYCL Error, error code"               \
-                  << " = " << e.get_cl_code()               \
-                  << ", message:" << e.what();              \
-    }                                                       \
+#define SYCL_CALL(func)                                                   \
+  {                                                                       \
+    try {                                                                 \
+      func;                                                               \
+    } catch (const ::sycl::exception& e) {                                \
+      LOG(FATAL) << "SYCL Error, error code"                              \
+                 << " = " << e.get_cl_code() << ", message:" << e.what(); \
+    }                                                                     \
   }
 
 class SYCLBackendAPI final : public BackendAPI {
@@ -85,12 +84,11 @@ class SYCLBackendAPI final : public BackendAPI {
    * \param arch
    * \return return device0's_arch : arch if arch is Unk.
    */
-  Arch Init(Arch arch);
+  void Init(Arch arch);
   void set_device(int device_id) final;
   int get_device() final;
-  int get_device_property(
-      DeviceProperty device_property,
-      std::optional<int> device_id = std::nullopt) final;
+  int get_device_property(DeviceProperty device_property,
+                          std::optional<int> device_id = std::nullopt) final;
   void* malloc(size_t numBytes) final;
   // void set_active_devices(std::vector<int> device_ids) final;
   void free(void* data) final;
