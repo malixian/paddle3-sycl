@@ -35,6 +35,7 @@ __global__ void EmbeddingFW(T *output,
   while (idy < K) {
     auto id = static_cast<int64_t>(ids[idy]);
     if (PaddingFlag == false || id != padding_idx) {
+      /*
       PADDLE_ENFORCE(id >= 0,
                      "Id should no less than 0 but received an id value: %lld.",
                      id);
@@ -43,6 +44,9 @@ __global__ void EmbeddingFW(T *output,
           "Id should smaller than %lld but received an id value: %lld.",
           N,
           id);
+      */
+      if (id < 0) id = 0;
+      else if (id >= N) id = N-1;
     }
     T *out = output + idy * D;
     const T *tab = table + id * D;

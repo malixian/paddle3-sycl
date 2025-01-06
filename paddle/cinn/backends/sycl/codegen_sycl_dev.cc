@@ -25,7 +25,6 @@
 #include "paddle/cinn/optim/ir_simplify.h"
 
 #include "paddle/cinn/backends/sycl/compiler_sycl.h"
-using cinn::backends::syclrtc::NUM;
 
 namespace cinn {
 namespace backends {
@@ -103,8 +102,9 @@ void CodeGenSyclDevice::Visit(const ir::_LoweredFunc_ *op) {
   DoIndent();
   str_ += "h.parallel_for<class " + GenerateKernelName(op) +
           ">(sycl::nd_range<3>(dimGrid * dimBlock, dimBlock), "
-          "[=](sycl::nd_item<3> item) "
-          "[[intel::kernel_args_restrict]]";
+          "[=](sycl::nd_item<3> item) ";
+          //"[[intel::kernel_args_restrict]]";
+  /*
   if (op->cuda_axis_info.valid()) {
     bool has_symbol_in_thread_num = false;
     std::string launch_bounds_max_work_group_size =
@@ -127,6 +127,7 @@ void CodeGenSyclDevice::Visit(const ir::_LoweredFunc_ *op) {
       str_ += launch_bounds_max_work_group_size;
     }
   }
+  */
   str_ += "\n";
   // function body
   PrintFunctionBody(op);
@@ -148,11 +149,11 @@ void CodeGenSyclDevice::Visit(const ir::_Var_ *op) {
       str_ += "(int)item.get_group(";
     }
     if (utils::EndsWith(op->name, "x")) {
-      str_ += std::to_string(2);
+      str_ += std::to_string(0);
     } else if (utils::EndsWith(op->name, "y")) {
       str_ += std::to_string(1);
     } else if (utils::EndsWith(op->name, "z")) {
-      str_ += std::to_string(0);
+      str_ += std::to_string(2);
     }
     str_ += ")";
   } else {
@@ -345,7 +346,7 @@ void CodeGenSyclDevice::Visit(const ir::Call *op) {
 }
 
 std::string CodeGenSyclDevice::GenerateKernelName(const ir::_LoweredFunc_ *op) {
-  std::string kernel_name = "space" + std::to_string(NUM::getNum());
+  std::string kernel_name = common::UniqName("space");
   kernel_name += "_";
   kernel_name += op->name;
   return kernel_name;

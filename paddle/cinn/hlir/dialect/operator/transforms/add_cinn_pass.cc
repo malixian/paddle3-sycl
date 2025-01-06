@@ -223,31 +223,42 @@ void ApplyCinnLowerPass(
   bool has_dynamic_shape = HasDynamicShape(*program);
 
   bool force_static_shape = false;
+  
+  LOG(INFO) << "Begin CreateConvertDynamicToStaticDimPass";
+
   if (auto pass = cinn::dialect::ir::CreateConvertDynamicToStaticDimPass()) {
     pass_manager->AddPass(std::move(pass.value()));
     force_static_shape = true;
   }
+
+  LOG(INFO) << "Begin CreateConvertStaticDimToDynamicPass";
   if (auto pass = cinn::dialect::ir::CreateConvertStaticDimToDynamicPass()) {
     pass_manager->AddPass(std::move(pass.value()));
   }
-
   if (FLAGS_enable_cinn_accuracy_check) {
     VLOG(0) << "Enable CINN Accuracy Check Pass";
+    LOG(INFO) << "Begin CreateAccuarcyCheckPass";
     pass_manager->AddPass(cinn::dialect::ir::CreateAccuarcyCheckPass());
   }
+  
+
   if (FLAGS_enable_fusion_fallback) {
     VLOG(0) << "Enable Fusion Fallback Pass";
+    LOG(INFO) << "Begin CreateFusionFallbackPass";
     pass_manager->AddPass(cinn::dialect::ir::CreateFusionFallbackPass());
   }
   if (has_dynamic_shape && !force_static_shape) {
+    LOG(INFO) << "Begin CreateLowerCinnDyShapeFusinoOpPass";
     pass_manager->AddPass(
         cinn::dialect::ir::CreateLowerCinnDyShapeFusionOpPass());
   } else {
+    LOG(INFO) << "Begin CreateLowerCinnFusionOpPass";
     pass_manager->AddPass(cinn::dialect::ir::CreateLowerCinnFusionOpPass());
   }
+  LOG(INFO) << "Begin CreateSplitGenerateShapeIntoShapeOpsPass";
   pass_manager->AddPass(
       cinn::dialect::ir::CreateSplitGenerateShapeIntoShapeOpsPass());
-
+  LOG(INFO) << "Begin PassManager Run";
   pass_manager->Run(program);
 }
 

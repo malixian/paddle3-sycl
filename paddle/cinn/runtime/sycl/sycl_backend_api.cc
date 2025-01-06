@@ -107,36 +107,38 @@ int SYCLBackendAPI::get_device_property(DeviceProperty device_property,
 
   switch (device_property) {
     case DeviceProperty::MaxBlockDimX: {
-      ::sycl::_V1::id<3> max_work_item_sizes =
-          this->devices[index]
-              .get_info<::sycl::_V1::info::device::max_work_item_sizes<3>>();
+           
+      auto max_work_item_sizes =
+          this->devices[index].get_info<::sycl::info::device::max_work_item_sizes>();
       rv = max_work_item_sizes[0];
+    
       break;
     }
     case DeviceProperty::MaxBlockDimY: {
-      ::sycl::_V1::id<3> max_work_item_sizes =
-          this->devices[index]
-              .get_info<::sycl::_V1::info::device::max_work_item_sizes<3>>();
+      
+      auto max_work_item_sizes =
+          this->devices[index].get_info<::sycl::info::device::max_work_item_sizes>();
       rv = max_work_item_sizes[1];
+      
       break;
     }
     case DeviceProperty::MaxBlockDimZ: {
-      ::sycl::_V1::id<3> max_work_item_sizes =
-          this->devices[index]
-              .get_info<::sycl::_V1::info::device::max_work_item_sizes<3>>();
+      
+      auto max_work_item_sizes =
+          this->devices[index].get_info<::sycl::info::device::max_work_item_sizes>();
       rv = max_work_item_sizes[2];
       break;
     }
     case DeviceProperty::MaxGridDimX: {
-      rv = 2097151;
+      rv = 2147483647;
       break;
     }
     case DeviceProperty::MaxGridDimY: {
-      rv = 2097151;
+      rv = 2147483647;
       break;
     }
     case DeviceProperty::MaxGridDimZ: {
-      rv = 2097151;
+      rv = 2147483647;
       break;
     }
     case DeviceProperty::MaxSharedMemoryPerBlock: {
@@ -174,11 +176,12 @@ int SYCLBackendAPI::get_device_property(DeviceProperty device_property,
     default:
       LOG(FATAL) << "Not supported device property!";
   }
+  VLOG(3) << "sycl device property: "<<" return val: "<<rv;
   return rv;
 }
 
 void* SYCLBackendAPI::malloc(size_t numBytes) {
-  VLOG(3) << "sycl malloc";
+  VLOG(3) << "=========== sycl malloc size: "<<numBytes;
   void* dev_mem = nullptr;
   SYCL_CALL(dev_mem = ::sycl::malloc_device(numBytes,
                                             this->devices[now_device_id],
@@ -189,7 +192,7 @@ void* SYCLBackendAPI::malloc(size_t numBytes) {
 }
 
 void SYCLBackendAPI::free(void* data) {
-  VLOG(3) << "sycl free";
+  VLOG(4) << "sycl free";
   SYCL_CALL(::sycl::free(data, *this->contexts[now_device_id]));
 }
 
@@ -203,7 +206,7 @@ void SYCLBackendAPI::memcpy(void* dest,
                             const void* src,
                             size_t numBytes,
                             MemcpyType type) {
-  VLOG(3) << "sycl memcpy";
+  VLOG(4) << "sycl memcpy numBytes: "<<numBytes;
   ::sycl::queue* Q;
   switch (type) {
     case MemcpyType::HostToHost:
@@ -223,7 +226,7 @@ void SYCLBackendAPI::memcpy(void* dest,
 }
 
 void SYCLBackendAPI::device_sync() {
-  VLOG(3) << "sycl device sync";
+  VLOG(4) << "sycl device sync";
   for (auto queues_in_one_device : this->queues) {
     for (auto queue : queues_in_one_device) {
       // LOG(INFO) << "sycl stream sync";
@@ -233,7 +236,7 @@ void SYCLBackendAPI::device_sync() {
 }
 
 void SYCLBackendAPI::stream_sync(void* stream) {
-  VLOG(3) << "sycl stream sync";
+  VLOG(4) << "sycl stream sync";
   SYCL_CALL(static_cast<::sycl::queue*>(stream)->wait_and_throw());
 }
 
@@ -250,7 +253,7 @@ std::string SYCLBackendAPI::GetGpuVersion() {
       // device.get_info<::sycl::info::device::version>(); size_t pos =
       // gpu_version.find(":"); if (pos != std::string::npos) gpu_version =
       // gpu_version.substr(0, pos);
-      std::string gpu_version = "gfx906";
+      std::string gpu_version = "gfx928";
       return gpu_version;
     }
     default:
@@ -261,19 +264,19 @@ std::string SYCLBackendAPI::GetGpuVersion() {
 std::array<int, 3> SYCLBackendAPI::get_max_block_dims(
     std::optional<int> device_id) {
   std::array<int, 3> kMaxBlockDims;
+  
   int index = device_id.value_or(this->now_device_id);
-  ::sycl::_V1::id<3> max_work_item_sizes =
-      this->devices[index]
-          .get_info<::sycl::_V1::info::device::max_work_item_sizes<3>>();
+  auto max_work_item_sizes = this->devices[index].get_info<::sycl::info::device::max_work_item_sizes>();
   kMaxBlockDims = std::array<int, 3>{
-      max_work_item_sizes[2], max_work_item_sizes[1], max_work_item_sizes[0]};
+      max_work_item_sizes[0], max_work_item_sizes[1], max_work_item_sizes[2]};
+  
   return kMaxBlockDims;
 }
 
 std::array<int, 3> SYCLBackendAPI::get_max_grid_dims(
     std::optional<int> device_id) {
   std::array<int, 3> kMaxGridDims;
-  kMaxGridDims = std::array<int, 3>{2097151, 2097151, 2097151};
+  kMaxGridDims = std::array<int, 3>{2147483647, 2147483647, 2147483647};
   return kMaxGridDims;
 }
 

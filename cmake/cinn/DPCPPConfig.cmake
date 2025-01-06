@@ -12,7 +12,7 @@ if(IS_DIRECTORY ${CINN_WITH_SYCL})
   set(DPCPP_ROOT ${CINN_WITH_SYCL})
 else()
   execute_process(
-    COMMAND which sycl-ls
+    COMMAND which clang++
     TIMEOUT 2
     OUTPUT_VARIABLE sycl_ls_path
     OUTPUT_STRIP_TRAILING_WHITESPACE)

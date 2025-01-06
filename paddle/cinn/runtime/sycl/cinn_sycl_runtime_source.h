@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include <glog/logging.h>
+//#include <glog/logging.h>
 #include <CL/sycl.hpp>
 #include <limits>
 // using sycl::ext::oneapi::bfloat16;
@@ -775,7 +775,6 @@ shm[item_ct1.get_local_id(0) * \
 
 #define CINN_PARTIAL_BLOCK_REDUCE_INTERNAL_SHM_IMPL(                          \
     TYPE, value, init_value, cinn_warp_shuffle_internal)                      \
-  VLOG(3) << "this line 777 ====================== lizhou ===============";   \
   int tid = item_ct1.get_local_id(1) +                                        \
             item_ct1.get_local_id(0) * item_ct1.get_local_range(1);           \
   unsigned int subgroup_size = item_ct1.get_sub_group().get_local_range()[0]; \

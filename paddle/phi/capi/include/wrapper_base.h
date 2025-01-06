@@ -553,7 +553,7 @@ class Kernel : WrapperBase<PD_Kernel> {
   TensorArgDef OutputAt(size_t idx) { return args_def().input_defs()[idx]; }
 };
 
-class MetaTensor : WrapperBase<PD_MetaTensor> {
+class MetaTensor : public WrapperBase<PD_MetaTensor> {
  public:
   explicit MetaTensor(PD_MetaTensor* meta_tensor)
       : WrapperBase<PD_MetaTensor>(meta_tensor) {}
