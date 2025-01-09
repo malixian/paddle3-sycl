@@ -135,7 +135,7 @@ void CodeGenSyclDevice::Visit(const ir::_LoweredFunc_ *op) {
   str_ += ");\n";
   DecIndent();
   DoIndent();
-  str_ += "});\n";
+  str_ += "}).wait();\n";
   DecIndent();
   str_ += "}\n";
 }
@@ -232,9 +232,9 @@ void CodeGenSyclDevice::PrintFunctionDeclaration(const ir::_LoweredFunc_ *op) {
     } else {
       CINN_NOT_IMPLEMENTED
     }
-    str_ += ")(*(void **)(void_args[";
+    str_ += ")(void_args[";
     str_ += std::to_string(i);
-    str_ += "]));\n";
+    str_ += "]);\n";
   }
 }
 

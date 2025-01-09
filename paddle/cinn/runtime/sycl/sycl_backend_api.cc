@@ -181,7 +181,7 @@ int SYCLBackendAPI::get_device_property(DeviceProperty device_property,
 }
 
 void* SYCLBackendAPI::malloc(size_t numBytes) {
-  VLOG(3) << "=========== sycl malloc size: "<<numBytes;
+  //std::cout<<" ================= [CINN Debug] sycl malloc size: " << numBytes<<std::endl;
   void* dev_mem = nullptr;
   SYCL_CALL(dev_mem = ::sycl::malloc_device(numBytes,
                                             this->devices[now_device_id],
@@ -198,6 +198,7 @@ void SYCLBackendAPI::free(void* data) {
 
 void SYCLBackendAPI::memset(void* data, int value, size_t numBytes) {
   VLOG(3) << "sycl memset";
+  //std::cout<<" ================= [CINN Debug] sycl memset size: " << numBytes<<std::endl;
   SYCL_CALL(
       this->queues[now_device_id][0]->memset(data, value, numBytes).wait());
 }
@@ -207,6 +208,7 @@ void SYCLBackendAPI::memcpy(void* dest,
                             size_t numBytes,
                             MemcpyType type) {
   VLOG(4) << "sycl memcpy numBytes: "<<numBytes;
+  //std::cout<<" ================= [CINN Debug] sycl memcpy size: " << numBytes<<std::endl;
   ::sycl::queue* Q;
   switch (type) {
     case MemcpyType::HostToHost:

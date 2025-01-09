@@ -44,8 +44,11 @@ void cinn_call_sycl_kernel(void *kernel_fn,
   VLOG(3) << "cinn_call_sycl_kernel, grid_dim={" << grid_x << ", " << grid_y
           << ", " << grid_z << "}, block_dim={" << block_x << ", " << block_y
           << ", " << block_z << "}, num_args=" << num_args;
-
+  /* std::cout<<" ================= [CINN Debug] getting cinn_call_sycl_kernel, grid_dim={" << grid_x << ", " << grid_y
+          << ", " << grid_z << "}, block_dim={" << block_x << ", " << block_y
+          << ", " << block_z << "}, num_args=" << num_args <<" kernel_fn="<<kernel_fn <<std::endl; */
   std::vector<void *> kernel_args;
+  ::sycl::queue *Queue = SYCLBackendAPI::Global()->get_now_queue();
   {
     cinn::utils::RecordEvent record_run("prepare_args",
                                         cinn::utils::EventType::kInstruction);
@@ -57,14 +60,24 @@ void cinn_call_sycl_kernel(void *kernel_fn,
         std::stringstream ss;
         ss << std::hex << addr;
         VLOG(4) << "sycl kernel arg[" << idx
-                << "] is a buffer, addr=" << ss.str();
-        kernel_args.emplace_back(&addr);
+                << "] is a buffer, addr=" << addr;
+        kernel_args.emplace_back(addr);
+        
+        std::cout<<" ================= [CINN Debug] getting sycl kernel arg:"<<idx<<" addr: "<<ss.str()<<std::endl;
+        float *host_array_in = new float[10];
+        Queue->memcpy(host_array_in, (float* )(kernel_args[idx]), 10 * sizeof(float)).wait(); 
+        std::cout<<" ================= [CINN Debug] get sycl memory input addr: "<<kernel_args[idx]<<std::endl;
+        for (size_t i = 0; i < 10; ++i) {
+            std::cout << host_array_in[i] << " ";
+        }
+        std::cout << std::endl; 
+        
       } else {
         kernel_args.emplace_back((args[idx].data_addr()));
       }
     }
   }
-
+  
   {
     cinn::utils::RecordEvent record_run("syclLaunchKernel",
                                         cinn::utils::EventType::kInstruction);
@@ -76,12 +89,19 @@ void cinn_call_sycl_kernel(void *kernel_fn,
                   ::sycl::range<3> k0_dimGrid,
                   ::sycl::range<3> k0_dimBlock,
                   void **void_args))(kernel_fn);
-    ::sycl::queue *Queue = SYCLBackendAPI::Global()->get_now_queue();
-    ::sycl::range<3> Grid(grid_z, grid_y, grid_x);
-    ::sycl::range<3> Block(block_z, block_y, block_x);
+    //::sycl::queue *Queue = SYCLBackendAPI::Global()->get_now_queue();
+    ::sycl::range<3> Grid(grid_x, grid_y, grid_z);
+    ::sycl::range<3> Block(block_x, block_y, block_z);
     // need malloc_shared
     // LOG(INFO) << "kernel args :" << (float* )(*(void **)(kernel_args[0]))[0]
     SYCL_CALL(kernel_func(*Queue, Grid, Block, kernel_args.data()));
+    /* float *host_array_out = new float[10];
+    Queue->memcpy(host_array_out, (float* )(kernel_args[num_args-1]), 10 * sizeof(float)).wait();
+    std::cout<<" ================= [CINN Debug] get sycl memory output addr: "<<kernel_args[num_args-1]<<std::endl;
+    for (size_t i = 0; i < 10; ++i) {
+        std::cout << host_array_out[i] << " ";
+    }
+    std::cout << std::endl; */ 
   }
 }
 
