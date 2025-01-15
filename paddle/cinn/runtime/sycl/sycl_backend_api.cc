@@ -19,11 +19,13 @@ namespace cinn {
 namespace runtime {
 namespace sycl {
 SYCLBackendAPI* SYCLBackendAPI::Global() {
+  //std::cout<<"=========== [CINN Debug], create sycl backend global object ============"<<std::endl;
   static auto* inst = new SYCLBackendAPI();
   return inst;
 }
 
 void SYCLBackendAPI::Init(Arch arch) {
+  //std::cout<<"=========== [CINN Debug], SYCL Init ============"<<std::endl;
   if (initialized_) return;
   auto devices = ::sycl::device::get_devices(::sycl::info::device_type::gpu);
   if (devices.size() == 0) {
@@ -69,7 +71,8 @@ void SYCLBackendAPI::Init(Arch arch) {
 }
 
 void SYCLBackendAPI::set_device(int device_id) {
-  if (!initialized_) Init(common::UnknownArch{});
+  //std::cout<<"=========== [CINN Debug], SYCL set device id: <<"<<device_id<<" ============"<<std::endl;
+  /* if (!initialized_) Init(common::UnknownArch{});
   if (device_id < 0) {
     LOG(FATAL) << "set valid device id! device id:" << device_id;
   } else if (device_id > this->devices.size() - 1) {
@@ -94,7 +97,24 @@ void SYCLBackendAPI::set_device(int device_id) {
     // one device one queue
     this->queues[device_id].push_back(new ::sycl::queue(
         *this->contexts[device_id], this->devices[device_id], q_prop));
+  } */
+  if (!initialized_) {
+    int device_num = 1;
+    this->devices.resize(device_num);
+    this->devices[device_id] = ::sycl::device(::sycl::gpu_selector());
+    this->contexts.resize(device_num);
+    this->queues.resize(device_num);
+    ::sycl::property_list q_prop{
+        ::sycl::property::queue::in_order()};  // In order queue
+    // create context and queue
+    this->contexts[device_id] =
+        new ::sycl::context(this->devices[device_id]);
+    // one device one queue
+    this->queues[device_id].push_back(new ::sycl::queue(
+        *this->contexts[device_id], this->devices[device_id], q_prop));
+    initialized_ = true;
   }
+  
   this->now_device_id = device_id;
 }
 

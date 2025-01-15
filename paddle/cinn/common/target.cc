@@ -28,7 +28,11 @@
 #include "paddle/cinn/runtime/backend_api.h"
 #include "paddle/cinn/runtime/cinn_runtime.h"
 #include "paddle/common/enforce.h"
+#include "paddle/common/flags.h"
+
 using cinn::runtime::BackendAPI;
+
+COMMON_DECLARE_bool(cinn_gen_sycl);
 
 namespace cinn {
 namespace common {
@@ -364,12 +368,12 @@ const Target &DefaultDeviceTarget() {
   return DefaultNVGPUTarget();
 
 
-#elif defined(CINN_WITH_SYCL)
-  return DefaultHygonDcuSyclTarget();
+#elif defined(CINN_WITH_SYCL) || defined(CINN_WITH_HIP)
+  if (FLAGS_cinn_gen_sycl)
+    return DefaultHygonDcuSyclTarget();
+  else
+    return DefaultHygonDcuHipTarget();
 
-
-#elif defined(CINN_WITH_HIP)
-  return DefaultHygonDcuHipTarget();
 #endif
 }
 
@@ -408,12 +412,12 @@ const Target &DefaultTarget() {
 #ifdef CINN_WITH_CUDA
   return DefaultNVGPUTarget();
 
-
-#elif defined(CINN_WITH_SYCL)
-  return DefaultHygonDcuSyclTarget(); 
- 
-#elif defined(CINN_WITH_HIP)
-  return DefaultHygonDcuHipTarget();
+#elif defined(CINN_WITH_SYCL) || defined(CINN_WITH_HIP)
+  if (FLAGS_cinn_gen_sycl)
+    return DefaultHygonDcuSyclTarget();
+  else
+    return DefaultHygonDcuHipTarget();
+  
 #else
   return DefaultHostTarget();
 #endif

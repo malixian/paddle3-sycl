@@ -74,10 +74,11 @@ std::string Compiler::CompileToSo(const std::string& source_code,
              source_file_path + " -o " + shared_lib_path;
   // compile
   VLOG(2) << "compile command: " << command;
-  PADDLE_ENFORCE_EQ(system(command.c_str()),
+  std::cout<<command<<std::endl;
+  /* PADDLE_ENFORCE_EQ(system(command.c_str()),
                     0,
                     ::common::errors::External(
-                        "Following compile command failed:\n%s", command));
+                        "Following compile command failed:\n%s", command)); */
   return shared_lib_path;
 }
 

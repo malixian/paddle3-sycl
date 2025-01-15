@@ -372,12 +372,14 @@ __device__ inline bool cinn_any(const bool left, const bool right) {
 
 #define CINN_SHUFFLE_FUNCTION(offset, op, init)       \
   shfl_res = __shfl_down(tmp_val, offset, WARP_SIZE); \
-  tmp_val = op(thread_id + offset < block_dim ? shfl_res : init, tmp_val);
+  printf("Before op offset:%d, warp_id:%d, lane_id:%d, threadIdx:%d, threadIdy:%d, shfl_res:%f, tmp_val:%f\n", offset, warp_id, lane_id, threadIdx.x, threadIdx.y, shfl_res, tmp_val);  \
+  tmp_val = op(thread_id + offset < block_dim ? shfl_res : init, tmp_val); \
+  printf("After op offset:%d, warp_id:%d, lane_id:%d, threadIdx:%d, threadIdy:%d, shfl_res:%f, tmp_val:%f\n", offset, warp_id, lane_id, threadIdx.x, threadIdx.y, shfl_res, tmp_val);  \
 
-#define CINN_WARP_SHUFFLE_INTERNAL_IMPL(REDUCE_TYPE, INITIAL_VALUE, DTYPE)    \
+/* #define CINN_WARP_SHUFFLE_INTERNAL_IMPL(REDUCE_TYPE, INITIAL_VALUE, DTYPE)    \
   __device__ inline DTYPE cinn_warp_shuffle_##REDUCE_TYPE##_internal(         \
       const DTYPE value) {                                                    \
-    DTYPE tmp_val = value, shfl_res;                                          \
+    DTYPE tmp_val = value, shfl_res=0.0;                                      \
     unsigned int thread_id = threadIdx.x;                                     \
     unsigned int block_dim = blockDim.x;                                      \
     unsigned int last_warp_size = block_dim - (thread_id - __lane_id());      \
@@ -395,7 +397,24 @@ __device__ inline bool cinn_any(const bool left, const bool right) {
       }                                                                       \
       return tmp_val;                                                         \
     }                                                                         \
-  }
+  } */
+
+  #define CINN_WARP_SHUFFLE_INTERNAL_IMPL(REDUCE_TYPE, INITIAL_VALUE, DTYPE)  \
+  __device__ inline DTYPE cinn_warp_shuffle_##REDUCE_TYPE##_internal(         \
+      const DTYPE value) {                                                    \
+    DTYPE tmp_val = value, shfl_res=0.0;                                      \
+    unsigned int thread_id = threadIdx.x;                                     \
+    unsigned int block_dim = blockDim.x;                                      \
+    unsigned int last_warp_size = block_dim - (thread_id - __lane_id());      \
+    unsigned int lane_id = __lane_id();                                       \
+    unsigned int thread_global_id=threadIdx.x+(threadIdx.y * blockDim.x);     \
+    unsigned int warp_id = thread_global_id / warpSize;                             \
+    for (unsigned int offset = WARP_SIZE / 2; offset >= 16; offset /= 2) {   \
+      CINN_SHUFFLE_FUNCTION(                                                \
+          offset, cinn_##REDUCE_TYPE, (DTYPE)(INITIAL_VALUE))               \
+    }                                                                       \
+    return tmp_val;                                                         \
+    }  
 
 EXPAND_REDUCE_INT32_MARCO(CINN_WARP_SHUFFLE_INTERNAL_IMPL)
 EXPAND_REDUCE_INT64_MARCO(CINN_WARP_SHUFFLE_INTERNAL_IMPL)
@@ -605,6 +624,7 @@ EXPAND_REDUCE_FP16_MACRO(CINN_DISCRETE_REDUCE_INTERNAL_SHM_MACRO)
   }                                                                                                  \
   __syncthreads();                                                                                   \
   return shm[threadIdx.y * row_dim];
+
 #define CINN_PARTIAL_BLOCK_REDUCE_INTERNAL_SHM_MACRO(REDUCE_TYPE, INITIAL_VALUE, DTYPE)                                                                \
   __device__ inline DTYPE cinn_partial_block_reduce_##REDUCE_TYPE##_internal_shm(const DTYPE value, DTYPE* shm, bool return_warp = false) {            \
     CINN_PARTIAL_BLOCK_REDUCE_INTERNAL_SHM_IMPL(DTYPE, value, (DTYPE)(INITIAL_VALUE), cinn_warp_shuffle_##REDUCE_TYPE##_internal);                      \

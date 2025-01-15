@@ -14,7 +14,7 @@
 
 #pragma once
 
-//#include <glog/logging.h>
+// #include <glog/logging.h>
 #include <CL/sycl.hpp>
 #include <limits>
 // using sycl::ext::oneapi::bfloat16;
@@ -28,7 +28,7 @@
 
 extern "C" {
 
-#define MAX_SUBGROUP_SIZE 32
+#define MAX_SUBGROUP_SIZE 64
 // item_ct1.get_sub_group().get_max_local_range()[0]
 #define MAX_THREADNUM_INGROUP 1024
 #define MAX_SUBGROUPNUM_INGROUP \
@@ -516,38 +516,76 @@ inline bool cinn_any(const bool left, const bool right) {
   return left || right;
 }
 
-#define CINN_WARP_SHUFFLE_INTERNAL_IMPL(REDUCE_TYPE, INITIAL_VALUE, DTYPE)     \
+/* #define CINN_SHUFFLE_FUNCTION(offset, op, init)                          \
+  shfl_res =                                                             \
+      item_ct1.get_sub_group().shuffle_down(tmp_val, offset);              \
+  if (item_ct1.get_local_id(0)==0 && item_ct1.get_local_id(1)==0) out<<"offset:"<<offset<<" threadIdx:"<<item_ct1.get_local_id(0)<<" threadIdy:"<<item_ct1.get_local_id(1)<<" shfl_res:"<<shfl_res<<"\n";  \
+  tmp_val = op((thread_id + offset < block_dim) ? shfl_res : init, tmp_val); */
+
+/* #define CINN_WARP_SHUFFLE_INTERNAL_IMPL(REDUCE_TYPE, INITIAL_VALUE, DTYPE)     \
   inline DTYPE cinn_warp_shuffle_##REDUCE_TYPE##_internal(                     \
-      const DTYPE value, const sycl::nd_item<3> &item_ct1) {                   \
-    DTYPE tmp_val = value, shfl_res;                                           \
-    unsigned int subgroup_size =                                               \
-        item_ct1.get_sub_group().get_local_range()[0];                         \
-    unsigned int threadId_in_subgroup =                                        \
-        item_ct1.get_sub_group().get_local_id()[0];                            \
-    if (subgroup_size < MAX_SUBGROUP_SIZE) {                                   \
+      const DTYPE value, const sycl::nd_item<3> &item_ct1, sycl::stream out) {                   \
+    DTYPE tmp_val = value, shfl_res = 0.0;                                     \
+    if(item_ct1.get_local_id(0)==0 && item_ct1.get_local_id(1)==0) out<<"value: "<<value<<"\n";\
+    unsigned int thread_id = item_ct1.get_local_id(0);                         \
+    unsigned int block_dim = item_ct1.get_local_range(0);                      \
+    unsigned int lane_id = item_ct1.get_local_linear_id();                     \
+    unsigned int last_warp_size = block_dim - (thread_id - lane_id);           \
+    if (last_warp_size < MAX_SUBGROUP_SIZE) {                                  \
       for (unsigned int offset = MAX_SUBGROUP_SIZE / 2; offset >= 1;           \
            offset /= 2) {                                                      \
-        shfl_res =                                                             \
-            sycl::shift_group_left(item_ct1.get_sub_group(), tmp_val, offset); \
-        tmp_val =                                                              \
-            cinn_##REDUCE_TYPE(tmp_val,                                        \
-                               (threadId_in_subgroup + offset) < subgroup_size \
-                                   ? shfl_res                                  \
-                                   : (DTYPE)(INITIAL_VALUE));                  \
+        CINN_SHUFFLE_FUNCTION(                                                 \
+            offset, cinn_##REDUCE_TYPE, (DTYPE)(INITIAL_VALUE))                \
       }                                                                        \
-      tmp_val = sycl::select_from_group(item_ct1.get_sub_group(), tmp_val, 0); \
+      tmp_val = item_ct1.get_sub_group().shuffle(tmp_val, 0);                  \
       return tmp_val;                                                          \
     } else {                                                                   \
       for (unsigned int offset = MAX_SUBGROUP_SIZE / 2; offset >= 1;           \
            offset /= 2) {                                                      \
         tmp_val = cinn_##REDUCE_TYPE(                                          \
             tmp_val,                                                           \
-            sycl::shift_group_left(                                            \
-                item_ct1.get_sub_group(), tmp_val, offset));                   \
+           item_ct1.get_sub_group().shuffle_xor(tmp_val, 0));                  \
       }                                                                        \
       return tmp_val;                                                          \
     }                                                                          \
-  }
+  } */
+
+
+#define CINN_SHUFFLE_FUNCTION(offset, op, init)                          \
+  unsigned int lane_offset_id = lane_id + offset;                             \
+  tmp_mem[local_linear_id] = tmp_val;                                       \
+  item_ct1.barrier(sycl::access::fence_space::local_space);                  \
+  if ( lane_offset_id < MAX_SUBGROUP_SIZE) {                                  \
+    local_mem[local_linear_id] = tmp_mem[lane_offset_id];                    \
+  } else {                                                                     \
+    local_mem[local_linear_id] = tmp_mem[local_linear_id];                     \
+  }                                                                            \
+  item_ct1.barrier(sycl::access::fence_space::local_space);                    \
+  shfl_res = local_mem[local_linear_id];                                       \
+  item_ct1.barrier(sycl::access::fence_space::local_space);                    \
+  out<<"Before op offset:"<<offset<<", warp_id:"<<warp_id<<", lane_id:"<<lane_id<<", threadIdx:"<<item_ct1.get_local_id(0)<<", threadIdy:"<<item_ct1.get_local_id(1)<<", shfl_res:"<<shfl_res<<", tmp_val:"<<tmp_val<<"\n";  \
+  tmp_val = op((thread_id_x + offset < block_dim) ? shfl_res : init, tmp_val); \
+  out<<"After op offset:"<<offset<<", warp_id:"<<warp_id<<", lane_id:"<<lane_id<<", threadIdx:"<<item_ct1.get_local_id(0)<<", threadIdy:"<<item_ct1.get_local_id(1)<<", shfl_res:"<<shfl_res<<", tmp_val:"<<tmp_val<<"\n";  \
+
+
+#define CINN_WARP_SHUFFLE_INTERNAL_IMPL(REDUCE_TYPE, INITIAL_VALUE, DTYPE)     \
+  inline DTYPE cinn_warp_shuffle_##REDUCE_TYPE##_internal(                     \
+      const DTYPE value, const sycl::nd_item<3> &item_ct1, sycl::stream out) {                   \
+    DTYPE tmp_val = value, shfl_res = 0.0;                                     \
+    unsigned int thread_id_x = item_ct1.get_local_id(0);                         \
+    unsigned int thread_id_y = item_ct1.get_local_id(1);                         \
+    unsigned int local_linear_id = thread_id_x + thread_id_y * item_ct1.get_local_range(0); \
+    unsigned int block_dim = item_ct1.get_local_range(0);                      \
+    unsigned int lane_id = local_linear_id % MAX_SUBGROUP_SIZE; \
+    unsigned int warp_id = local_linear_id / MAX_SUBGROUP_SIZE; \
+    unsigned int last_warp_size = block_dim - (local_linear_id - lane_id);           \
+    auto local_mem = *sycl::group_local_memory<DTYPE[128]>(item_ct1.get_group());  \
+    auto tmp_mem = *sycl::group_local_memory<DTYPE[128]>(item_ct1.get_group());  \
+    for (unsigned int offset = MAX_SUBGROUP_SIZE / 2; offset >= 16; offset /= 2) {  \
+      CINN_SHUFFLE_FUNCTION(offset, cinn_##REDUCE_TYPE, (DTYPE)(INITIAL_VALUE)) \
+    }                                                                        \
+    return tmp_val;                                                          \
+  } 
 
 EXPAND_REDUCE_INT32_MARCO(CINN_WARP_SHUFFLE_INTERNAL_IMPL)
 EXPAND_REDUCE_INT64_MARCO(CINN_WARP_SHUFFLE_INTERNAL_IMPL)
@@ -565,20 +603,32 @@ EXPAND_REDUCE_FP16_MACRO(CINN_WARP_SHUFFLE_INTERNAL_IMPL)
 
 #undef CINN_WARP_SHUFFLE_INTERNAL_IMPL
 
-#define CINN_WARP_REDUCE_IMPL(REDUCE_TYPE, INITIAL_VALUE, DTYPE)          \
+/* #define CINN_WARP_REDUCE_IMPL(REDUCE_TYPE, INITIAL_VALUE, DTYPE)          \
   inline DTYPE cinn_warp_reduce_##REDUCE_TYPE(                            \
       const DTYPE *buf,                                                   \
       int offset,                                                         \
       int extend,                                                         \
-      const sycl::nd_item<3> &item_ct1) {                                 \
+      const sycl::nd_item<3> &item_ct1, sycl::stream out) {                                 \
     DTYPE tmp_val = (DTYPE)(INITIAL_VALUE);                               \
-    unsigned int subgroup_size =                                          \
-        item_ct1.get_sub_group().get_local_range()[0];                    \
-    for (int i = item_ct1.get_sub_group().get_local_id()[0]; i < extend;  \
-         i += subgroup_size) {                                            \
+    for (int i = item_ct1.get_local_id()[0]; i < extend;                  \
+         i += MAX_SUBGROUP_SIZE) {                                        \
       tmp_val = cinn_##REDUCE_TYPE(tmp_val, buf[offset + i]);             \
     }                                                                     \
-    return cinn_warp_shuffle_##REDUCE_TYPE##_internal(tmp_val, item_ct1); \
+    return cinn_warp_shuffle_##REDUCE_TYPE##_internal(tmp_val, item_ct1, out); \
+  } */
+
+  #define CINN_WARP_REDUCE_IMPL(REDUCE_TYPE, INITIAL_VALUE, DTYPE)          \
+  inline DTYPE cinn_warp_reduce_##REDUCE_TYPE(                            \
+      const DTYPE *buf,                                                   \
+      int offset,                                                         \
+      int extend,                                                         \
+      const sycl::nd_item<3> &item_ct1, sycl::stream out) {                                 \
+    DTYPE tmp_val = (DTYPE)(INITIAL_VALUE);                               \
+    for (int i = item_ct1.get_local_id()[0]; i < extend;                  \
+         i += MAX_SUBGROUP_SIZE) {                                        \
+      tmp_val = cinn_##REDUCE_TYPE(tmp_val, buf[offset + i]);             \
+    }                                                                     \
+    return cinn_warp_shuffle_##REDUCE_TYPE##_internal(tmp_val, item_ct1, out); \
   }
 
 EXPAND_REDUCE_INT32_MARCO(CINN_WARP_REDUCE_IMPL)
@@ -600,8 +650,8 @@ EXPAND_REDUCE_FP16_MACRO(CINN_WARP_REDUCE_IMPL)
 inline float cinn_warp_reduce_avg_fp32(const float *buf,
                                        int offset,
                                        int extend,
-                                       const sycl::nd_item<3> &item_ct1) {
-  return cinn_warp_reduce_sum_fp32(buf, offset, extend, item_ct1) / extend;
+                                       const sycl::nd_item<3> &item_ct1, sycl::stream out) {
+  return cinn_warp_reduce_sum_fp32(buf, offset, extend, item_ct1, out) / extend;
 }
 
 /*
@@ -617,7 +667,7 @@ performance if there is no access to global memory.
   if (subgroup_id == 0) {                                                \
     tmp[item_ct1.get_local_id(2)] = init_value;                          \
   }                                                                      \
-  TYPE tmp_val = cinn_warp_shuffle_internal(value, item_ct1);            \
+  TYPE tmp_val = cinn_warp_shuffle_internal(value, item_ct1, out);            \
   if (item_ct1.get_sub_group().get_local_range()[0] == 1) {              \
     return tmp_val;                                                      \
   }                                                                      \
@@ -628,7 +678,7 @@ performance if there is no access to global memory.
   item_ct1.barrier(sycl::access::fence_space::local_space);              \
   if (subgroup_id == 0) {                                                \
     tmp_val = tmp[item_ct1.get_local_id(2)];                             \
-    tmp_val = cinn_warp_shuffle_internal(tmp_val, item_ct1);             \
+    tmp_val = cinn_warp_shuffle_internal(tmp_val, item_ct1, out);             \
     if (item_ct1.get_local_id(2) == 0) {                                 \
       tmp[0] = tmp_val;                                                  \
     }                                                                    \
@@ -638,7 +688,7 @@ performance if there is no access to global memory.
 
 #define CINN_BLOCK_REDUCE_INTERNAL_MACRO(REDUCE_TYPE, INITIAL_VALUE, DTYPE) \
   inline DTYPE cinn_block_reduce_##REDUCE_TYPE##_internal(                  \
-      const DTYPE value, const sycl::nd_item<3> &item_ct1) {                \
+      const DTYPE value, const sycl::nd_item<3> &item_ct1, sycl::stream out) {                \
     CINN_BLOCK_REDUCE_INTERNAL_IMPL(                                        \
         DTYPE,                                                              \
         value,                                                              \
@@ -662,35 +712,60 @@ EXPAND_REDUCE_FP16_MACRO(CINN_BLOCK_REDUCE_INTERNAL_MACRO)
 #undef CINN_BLOCK_REDUCE_INTERNAL_IMPL
 #undef CINN_BLOCK_REDUCE_INTERNAL_MACRO
 
-#define CINN_BLOCK_REDUCE_IMPL(REDUCE_TYPE, INITIAL_VALUE, DTYPE)         \
-  inline DTYPE cinn_block_reduce_##REDUCE_TYPE(                           \
-      const DTYPE *buf,                                                   \
-      int offset,                                                         \
-      int extend,                                                         \
-      const sycl::nd_item<3> &item_ct1) {                                 \
-    DTYPE tmp_val = (DTYPE)(INITIAL_VALUE);                               \
-    for (int i = item_ct1.get_local_id(2); i < extend;                    \
-         i += item_ct1.get_local_range(2)) {                              \
-      tmp_val = cinn_##REDUCE_TYPE(tmp_val, buf[offset + i]);             \
-    }                                                                     \
-    return cinn_block_reduce_##REDUCE_TYPE##_internal(tmp_val, item_ct1); \
+#define CINN_BLOCK_REDUCE_INTERNAL_SHM_IMPL(                  \
+    TYPE, value, init_value, cinn_warp_shuffle_internal)      \
+  int warp_id = item_ct1.get_sub_group().get_group_id();      \
+  TYPE tmp_val = cinn_warp_shuffle_internal(value, item_ct1, out); \
+  if (return_warp) return tmp_val;                            \
+  if (item_ct1.get_local_range(0) <= MAX_SUBGROUP_SIZE) {     \
+    return tmp_val;                                           \
+  }                                                           \
+  if (warp_id == 0) {                                         \
+    shm[item_ct1.get_local_id(0)] = init_value;               \
+  }                                                           \
+  item_ct1.barrier(sycl::access::fence_space::local_space);   \
+  if (item_ct1.get_sub_group().get_local_id()[0] == 0) {      \
+    shm[warp_id] = tmp_val;                                   \
+  }                                                           \
+  item_ct1.barrier(sycl::access::fence_space::local_space);   \
+  if (warp_id == 0) {                                         \
+    tmp_val = shm[item_ct1.get_local_id(0)];                  \
+    shm[item_ct1.get_local_id(0)] =                           \
+        cinn_warp_shuffle_internal(tmp_val, item_ct1, out);        \
+  }                                                           \
+  item_ct1.barrier(sycl::access::fence_space::local_space);   \
+  return shm[0];
+
+#define CINN_BLOCK_REDUCE_INTERNAL_SHM_MACRO(                  \
+    REDUCE_TYPE, INITIAL_VALUE, DTYPE)                         \
+  inline DTYPE cinn_block_reduce_##REDUCE_TYPE##_internal_shm( \
+      const DTYPE value,                                       \
+      DTYPE *shm,                                              \
+      bool return_warp,                                        \
+      const sycl::nd_item<3> &item_ct1, sycl::stream out) {                      \
+    CINN_BLOCK_REDUCE_INTERNAL_SHM_IMPL(                       \
+        DTYPE,                                                 \
+        value,                                                 \
+        (DTYPE)(INITIAL_VALUE),                                \
+        cinn_warp_shuffle_##REDUCE_TYPE##_internal);           \
   }
 
-EXPAND_REDUCE_INT32_MARCO(CINN_BLOCK_REDUCE_IMPL)
-EXPAND_REDUCE_INT64_MARCO(CINN_BLOCK_REDUCE_IMPL)
-EXPAND_REDUCE_FP32_MACRO(CINN_BLOCK_REDUCE_IMPL)
-EXPAND_REDUCE_FP64_MACRO(CINN_BLOCK_REDUCE_IMPL)
-EXPAND_REDUCE_BOOL_MACRO(CINN_BLOCK_REDUCE_IMPL)
+EXPAND_REDUCE_INT32_MARCO(CINN_BLOCK_REDUCE_INTERNAL_SHM_MACRO)
+EXPAND_REDUCE_INT64_MARCO(CINN_BLOCK_REDUCE_INTERNAL_SHM_MACRO)
+EXPAND_REDUCE_FP32_MACRO(CINN_BLOCK_REDUCE_INTERNAL_SHM_MACRO)
+EXPAND_REDUCE_FP64_MACRO(CINN_BLOCK_REDUCE_INTERNAL_SHM_MACRO)
+EXPAND_REDUCE_BOOL_MACRO(CINN_BLOCK_REDUCE_INTERNAL_SHM_MACRO)
 
 #ifdef CINN_SYCL_BF16
-EXPAND_REDUCE_BF16_MACRO(CINN_BLOCK_REDUCE_IMPL)
+EXPAND_REDUCE_BF16_MACRO(CINN_BLOCK_REDUCE_INTERNAL_SHM_MACRO)
 #endif
 
 #ifdef CINN_SYCL_FP16
-EXPAND_REDUCE_FP16_MACRO(CINN_BLOCK_REDUCE_IMPL)
+EXPAND_REDUCE_FP16_MACRO(CINN_BLOCK_REDUCE_INTERNAL_SHM_MACRO)
 #endif
 
-#undef CINN_BLOCK_REDUCE_IMPL
+#undef CINN_BLOCK_REDUCE_INTERNAL_SHM_IMPL
+#undef CINN_BLOCK_REDUCE_INTERNAL_SHM_MACRO
 
 #define CINN_DISCRETE_REDUCE_INTERNAL_SHM_IMPL(REDUCE_TYPE, value)    \
   int tid = item_ct1.get_local_id(1) * item_ct1.get_local_range(0) +  \
@@ -732,140 +807,35 @@ EXPAND_REDUCE_FP16_MACRO(CINN_DISCRETE_REDUCE_INTERNAL_SHM_MACRO)
 #undef CINN_DISCRETE_REDUCE_INTERNAL_SHM_IMPL
 #undef CINN_DISCRETE_REDUCE_INTERNAL_SHM_MACRO
 
-/*
-#define CINN_PARTIAL_BLOCK_REDUCE_INTERNAL_SHM_IMPL(         \
-    TYPE, value, init_value, cinn_warp_shuffle_internal)    \
-  std::cout << "use line 742 =============== lizhou ============" << std::endl;\
-  int tid = item_ct1.get_local_id(1)                        \
-    + item_ct1.get_local_id(0) * item_ct1.get_local_range(1);\
-  std::cout << "use line 745 =============== lizhou ============" << std::endl;\
-  unsigned int subgroup_size =                                \
-        item_ct1.get_sub_group().get_local_range()[0];      \
-  std::cout << "use line 748 =============== lizhou ============" << std::endl;\
-  unsigned int local_range_size = item_ct1.get_local_range()[0]; \
-  std::cout << "use line 750 =============== lizhou ============" << std::endl;\
-  int subgroup_id = tid / subgroup_size;                        \
-  std::cout << "use line 752 =============== lizhou ============" << std::endl;\
-  unsigned int row_dim = local_range_size / subgroup_size;      \
-  std::cout << "use line 754 =============== lizhou ============" << std::endl;\
-  TYPE tmp_val = cinn_warp_shuffle_internal(value, item_ct1); \
-  std::cout << "use line 756 =============== lizhou ============" << std::endl;\
-  if (local_range_size <= subgroup_size) {                     \
-        return tmp_val;                                       \
-  }                                                             \
-  std::cout << "use line 760 =============== lizhou ============" << std::endl;\
-  item_ct1.barrier(sycl::access::fence_space::local_space);     \
-  std::cout << "use line 762 =============== lizhou ============" << std::endl;\
-  if ((tid % subgroup_size) == 0) {                              \
-      shm[subgroup_id] = tmp_val;                                    \
-  }                                                             \
-  std::cout << "use line 766 =============== lizhou ============" << std::endl;\
-  item_ct1.barrier(sycl::access::fence_space::local_space);     \
-  std::cout << "use line 768 =============== lizhou ============" << std::endl;\
-  if (item_ct1.get_local_id(1) < subgroup_size) {                            \
-    tmp_val = (item_ct1.get_local_id(1) < row_dim) ?
-shm[item_ct1.get_local_id(0) * \
-    row_dim + item_ct1.get_local_id(1)] : init_value;               \
-    shm[subgroup_id] = cinn_warp_shuffle_internal(tmp_val, item_ct1);         \
-  }                                                                   \
-  item_ct1.barrier(sycl::access::fence_space::local_space);           \
-  std::cout << "use line 777 =============== lizhou ============" << std::endl;\
-  return shm[item_ct1.get_local_id(0) * row_dim];                 \
-*/
-
-#define CINN_PARTIAL_BLOCK_REDUCE_INTERNAL_SHM_IMPL(                          \
-    TYPE, value, init_value, cinn_warp_shuffle_internal)                      \
-  int tid = item_ct1.get_local_id(1) +                                        \
-            item_ct1.get_local_id(0) * item_ct1.get_local_range(1);           \
-  unsigned int subgroup_size = item_ct1.get_sub_group().get_local_range()[0]; \
-  unsigned int local_range_size = item_ct1.get_local_range()[0];              \
-  int subgroup_id = tid / subgroup_size;                                      \
-  unsigned int row_dim = local_range_size / subgroup_size;                    \
-  TYPE tmp_val = cinn_warp_shuffle_internal(value, item_ct1);                 \
-  if (local_range_size <= subgroup_size) {                                    \
-    return tmp_val;                                                           \
-  }                                                                           \
-  item_ct1.barrier(sycl::access::fence_space::local_space);                   \
-  if ((tid % subgroup_size) == 0) {                                           \
-    shm[subgroup_id] = tmp_val;                                               \
-  }                                                                           \
-  item_ct1.barrier(sycl::access::fence_space::local_space);                   \
-  if (item_ct1.get_local_id(1) < 32) {                                        \
-    tmp_val = (item_ct1.get_local_id(1) < row_dim)                            \
-                  ? shm[item_ct1.get_local_id(0) * row_dim +                  \
-                        item_ct1.get_local_id(1)]                             \
-                  : init_value;                                               \
-    shm[subgroup_id] = cinn_warp_shuffle_internal(tmp_val, item_ct1);         \
-  }                                                                           \
-  item_ct1.barrier(sycl::access::fence_space::local_space);                   \
-  return shm[item_ct1.get_local_id(0) * row_dim];
-
-#define CINN_PARTIAL_BLOCK_REDUCE_INTERNAL_SHM_MACRO(                  \
-    REDUCE_TYPE, INITIAL_VALUE, DTYPE)                                 \
-  inline DTYPE cinn_partial_block_reduce_##REDUCE_TYPE##_internal_shm( \
-      const DTYPE value,                                               \
-      DTYPE *shm,                                                      \
-      bool return_warp,                                                \
-      const sycl::nd_item<3> &item_ct1) {                              \
-    CINN_PARTIAL_BLOCK_REDUCE_INTERNAL_SHM_IMPL(                       \
-        DTYPE,                                                         \
-        value,                                                         \
-        (DTYPE)(INITIAL_VALUE),                                        \
-        cinn_warp_shuffle_##REDUCE_TYPE##_internal);                   \
+#define CINN_BLOCK_REDUCE_IMPL(REDUCE_TYPE, INITIAL_VALUE, DTYPE)         \
+  inline DTYPE cinn_block_reduce_##REDUCE_TYPE(                           \
+      const DTYPE *buf,                                                   \
+      int offset,                                                         \
+      int extend,                                                         \
+      const sycl::nd_item<3> &item_ct1, sycl::stream out) {               \
+    DTYPE tmp_val = (DTYPE)(INITIAL_VALUE);                               \
+    for (int i = item_ct1.get_local_id(2); i < extend;                    \
+         i += item_ct1.get_local_range(2)) {                              \
+      tmp_val = cinn_##REDUCE_TYPE(tmp_val, buf[offset + i]);             \
+    }                                                                     \
+    return cinn_block_reduce_##REDUCE_TYPE##_internal(tmp_val, item_ct1, out); \
   }
-EXPAND_REDUCE_INT32_MARCO(CINN_PARTIAL_BLOCK_REDUCE_INTERNAL_SHM_MACRO)
-EXPAND_REDUCE_INT64_MARCO(CINN_PARTIAL_BLOCK_REDUCE_INTERNAL_SHM_MACRO)
-EXPAND_REDUCE_FP32_MACRO(CINN_PARTIAL_BLOCK_REDUCE_INTERNAL_SHM_MACRO)
-EXPAND_REDUCE_FP64_MACRO(CINN_PARTIAL_BLOCK_REDUCE_INTERNAL_SHM_MACRO)
-EXPAND_REDUCE_BOOL_MACRO(CINN_PARTIAL_BLOCK_REDUCE_INTERNAL_SHM_MACRO)
+
+EXPAND_REDUCE_INT32_MARCO(CINN_BLOCK_REDUCE_IMPL)
+EXPAND_REDUCE_INT64_MARCO(CINN_BLOCK_REDUCE_IMPL)
+EXPAND_REDUCE_FP32_MACRO(CINN_BLOCK_REDUCE_IMPL)
+EXPAND_REDUCE_FP64_MACRO(CINN_BLOCK_REDUCE_IMPL)
+EXPAND_REDUCE_BOOL_MACRO(CINN_BLOCK_REDUCE_IMPL)
+
 #ifdef CINN_SYCL_BF16
-EXPAND_REDUCE_BF16_MACRO(CINN_PARTIAL_BLOCK_REDUCE_INTERNAL_SHM_MACRO)
+EXPAND_REDUCE_BF16_MACRO(CINN_BLOCK_REDUCE_IMPL)
 #endif
-#ifdef CINN_SYCl_FP16
-EXPAND_REDUCE_FP16_MACRO(CINN_PARTIAL_BLOCK_REDUCE_INTERNAL_SHM_MACRO)
+
+#ifdef CINN_SYCL_FP16
+EXPAND_REDUCE_FP16_MACRO(CINN_BLOCK_REDUCE_IMPL)
 #endif
-#undef CINN_PARTIAL_BLOCK_REDUCE_INTERNAL_SHM_IMPL
-#undef CINN_PARTIAL_BLOCK_REDUCE_INTERNAL_SHM_MACRO
 
-// #define CINN_GRID_REDUCE_IMPL(REDUCE_TYPE, init_value, DTYPE)               \
-//   DTYPE tmp_val = init_value;                                               \
-//   for (int y = 0; y < gridDim.y; y++) {                                     \
-//     tmp_val =                                                               \
-//         cinn_##REDUCE_TYPE(tmp_val, mem[y * spatial_size + spatial_index]); \
-//   }                                                                         \
-//   return tmp_val;
-
-// #define CINN_GRID_REDUCE_MACRO(REDUCE_TYPE, INITIAL_VALUE, DTYPE)      \
-//   inline DTYPE cinn_grid_reduce_##REDUCE_TYPE(              \
-//       const DTYPE *mem, int spatial_size, int spatial_index) {         \
-//     CINN_GRID_REDUCE_IMPL(REDUCE_TYPE, (DTYPE)(INITIAL_VALUE), DTYPE); \
-//   }
-
-// EXPAND_REDUCE_INT32_MARCO(CINN_GRID_REDUCE_MACRO)
-// EXPAND_REDUCE_INT64_MARCO(CINN_GRID_REDUCE_MACRO)
-// EXPAND_REDUCE_FP32_MACRO(CINN_GRID_REDUCE_MACRO)
-// EXPAND_REDUCE_FP64_MACRO(CINN_GRID_REDUCE_MACRO)
-// EXPAND_REDUCE_BOOL_MACRO(CINN_GRID_REDUCE_MACRO)
-// #ifdef CINN_SYCL_BF16
-// EXPAND_REDUCE_BF16_MACRO(CINN_GRID_REDUCE_MACRO)
-// #endif
-// #ifdef CINN_SYCL_FP16
-// EXPAND_REDUCE_FP16_MACRO(CINN_GRID_REDUCE_MACRO)
-// #endif
-// #undef CINN_GRID_REDUCE_IMPL
-// #undef CINN_GRID_REDUCE_MACRO
-
-// __device__ inline bool cinn_grid_reduce_update_semaphore(int *semaphores) {
-//   __shared__ bool done;
-//   __threadfence();
-//   __syncthreads();
-//   if (threadIdx.x == 0 && threadIdx.y == 0 && threadIdx.z == 0) {
-//     int old = atomicAdd(&semaphores[blockIdx.x], 1);
-//     done = (old == (gridDim.y - 1));
-//   }
-//   __syncthreads();
-//   return done;
-// }
+#undef CINN_BLOCK_REDUCE_IMPL
 
 #undef EXPAND_REDUCE_INT32_MARCO
 #undef EXPAND_REDUCE_INT64_MARCO
@@ -1157,34 +1127,3 @@ int cinn_sycl_resize_bicubic(const int *buf,
 #undef FN_FP16
 #endif
 }
-
-// #define CINN_PARTIAL_BLOCK_REDUCE_INTERNAL_SHM_IMPL(         \
-//     TYPE, value, init_value, cinn_warp_shuffle_internal)    \
-//   int tid = item_ct1.get_local_id(1)                        \
-//     + item_ct1.get_local_id(0) * item_ct1.get_local_range(1);\
-//   unsigned int subgroup_size =                                               \
-//         item_ct1.get_sub_group().get_local_range()[0];
-//   int warp_id = tid / subgroup_size;
-//   int warp_id = tid / 32;                                   \
-//   int row_dim = (item_ct1.get_local_range(1) + 31) / 32;    \
-//   TYPE tmp_val = cinn_warp_shuffle_internal(value, item_ct1); \
-//   if (item_ct1.get_local_range(1) <= 32) {                   \
-//         if (tid < 32) {                                       \
-//             shm[warp_id] = tmp_val;                           \
-//         }                                                     \
-//         item_ct1.barrier(sycl::access::fence_space::local_space);\
-//         return tmp_val;                                       \
-//   }                                                             \
-//   item_ct1.barrier(sycl::access::fence_space::local_space);     \
-//   if ((tid % 32) == 0) {                                        \
-//       shm[warp_id] = tmp_val;                                    \
-//   }                                                             \
-//   item_ct1.barrier(sycl::access::fence_space::local_space);     \
-//   if (item_ct1.get_local_id(1) < 32) {                            \
-//     tmp_val = (item_ct1.get_local_id(1) < row_dim) ?
-//     shm[item_ct1.get_local_id(0) * \
-//     row_dim + item_ct1.get_local_id(1)] : init_value;               \
-//     shm[warp_id] = cinn_warp_shuffle_internal(tmp_val, item_ct1);         \
-//   }                                                                   \
-//   item_ct1.barrier(sycl::access::fence_space::local_space);           \
-//   return shm[item_ct1.get_local_id(0) * row_dim];
