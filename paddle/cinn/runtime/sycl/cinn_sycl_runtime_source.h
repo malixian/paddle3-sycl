@@ -552,21 +552,20 @@ inline bool cinn_any(const bool left, const bool right) {
 
 
 #define CINN_SHUFFLE_FUNCTION(offset, op, init)                          \
+  out<<"Before op offset:"<<offset<<", warp_id:"<<warp_id<<", lane_id:"<<lane_id<<", threadIdx:"<<item_ct1.get_local_id(0)<<", threadIdy:"<<item_ct1.get_local_id(1)<<", shfl_res:"<<shfl_res<<", tmp_val:"<<tmp_val<<"\n";  \
   unsigned int lane_offset_id = lane_id + offset;                             \
   tmp_mem[local_linear_id] = tmp_val;                                       \
   item_ct1.barrier(sycl::access::fence_space::local_space);                  \
-  if ( lane_offset_id < MAX_SUBGROUP_SIZE) {                                  \
-    local_mem[local_linear_id] = tmp_mem[lane_offset_id];                    \
+  if ( lane_offset_id < MAX_SUBGROUP_SIZE) {                                 \
+    local_mem[local_linear_id] = tmp_mem[local_linear_id + offset];          \
   } else {                                                                     \
     local_mem[local_linear_id] = tmp_mem[local_linear_id];                     \
   }                                                                            \
   item_ct1.barrier(sycl::access::fence_space::local_space);                    \
   shfl_res = local_mem[local_linear_id];                                       \
   item_ct1.barrier(sycl::access::fence_space::local_space);                    \
-  out<<"Before op offset:"<<offset<<", warp_id:"<<warp_id<<", lane_id:"<<lane_id<<", threadIdx:"<<item_ct1.get_local_id(0)<<", threadIdy:"<<item_ct1.get_local_id(1)<<", shfl_res:"<<shfl_res<<", tmp_val:"<<tmp_val<<"\n";  \
   tmp_val = op((thread_id_x + offset < block_dim) ? shfl_res : init, tmp_val); \
   out<<"After op offset:"<<offset<<", warp_id:"<<warp_id<<", lane_id:"<<lane_id<<", threadIdx:"<<item_ct1.get_local_id(0)<<", threadIdy:"<<item_ct1.get_local_id(1)<<", shfl_res:"<<shfl_res<<", tmp_val:"<<tmp_val<<"\n";  \
-
 
 #define CINN_WARP_SHUFFLE_INTERNAL_IMPL(REDUCE_TYPE, INITIAL_VALUE, DTYPE)     \
   inline DTYPE cinn_warp_shuffle_##REDUCE_TYPE##_internal(                     \

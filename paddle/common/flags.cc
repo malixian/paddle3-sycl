@@ -1017,6 +1017,17 @@ PHI_DEFINE_EXPORTED_bool(use_cinn,
 
 /*
  * CINN related FLAG
+ * Name: FLAGS_cinn_gen_sycl
+ * Since Version: 3.0beta
+ * Value Range: bool, default=false
+ * Example: FLAGS_use_sycl=true would run CINN using SYCL
+ */
+PHI_DEFINE_EXPORTED_bool(cinn_gen_sycl,
+                         false,
+                         "It controls whether to run  CINN using SYCL");
+
+/*
+ * CINN related FLAG
  * Name: FLAGS_allow_cinn_ops
  * Since Version: 2.3
  * Value Range: string, default=""

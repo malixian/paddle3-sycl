@@ -370,11 +370,10 @@ __device__ inline bool cinn_any(const bool left, const bool right) {
   return left || right;
 }
 
+
 #define CINN_SHUFFLE_FUNCTION(offset, op, init)       \
   shfl_res = __shfl_down(tmp_val, offset, WARP_SIZE); \
-  printf("Before op offset:%d, warp_id:%d, lane_id:%d, threadIdx:%d, threadIdy:%d, shfl_res:%f, tmp_val:%f\n", offset, warp_id, lane_id, threadIdx.x, threadIdx.y, shfl_res, tmp_val);  \
   tmp_val = op(thread_id + offset < block_dim ? shfl_res : init, tmp_val); \
-  printf("After op offset:%d, warp_id:%d, lane_id:%d, threadIdx:%d, threadIdy:%d, shfl_res:%f, tmp_val:%f\n", offset, warp_id, lane_id, threadIdx.x, threadIdx.y, shfl_res, tmp_val);  \
 
 /* #define CINN_WARP_SHUFFLE_INTERNAL_IMPL(REDUCE_TYPE, INITIAL_VALUE, DTYPE)    \
   __device__ inline DTYPE cinn_warp_shuffle_##REDUCE_TYPE##_internal(         \
