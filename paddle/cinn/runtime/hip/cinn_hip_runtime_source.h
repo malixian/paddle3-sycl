@@ -393,6 +393,7 @@ __device__ inline bool cinn_any(const bool left, const bool right) {
       return tmp_val;                                                         \
     } else {                                                                  \
       for (unsigned int offset = WARP_SIZE / 2; offset >= 1; offset /= 2) {   \
+        DTYPE xor_ret = __shfl_xor(tmp_val, offset, WARP_SIZE);               \
         tmp_val = cinn_##REDUCE_TYPE(tmp_val, xor_ret);                       \
       }                                                                       \
       return tmp_val;                                                         \

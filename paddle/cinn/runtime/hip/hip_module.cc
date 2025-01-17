@@ -75,13 +75,13 @@ hipFunction_t HIPModule::GetFunction(int device_id,
     // Generate line number information (-lineinfo)
     jit_options[4] = hipJitOptionGenerateLineInfo;
     jit_opt_vals[4] = reinterpret_cast<void*>(value);
-    const char* load_path = "/home/malixian/repos/paddle-sycl-dev/Paddle-test/ops/source/my_hip_tmp.hsaco";
+    //const char* load_path = "/home/malixian/repos/paddle-sycl-dev/Paddle-test/ops/source/my_hip_tmp.hsaco";
     if (runtime::UseHipccCompiler()) {
       HIP_DRIVER_CHECK(
-          hipModuleLoad(&module_per_card_[device_id], load_path));
+          hipModuleLoad(&module_per_card_[device_id], data_.c_str()));
     } else {
       HIP_DRIVER_CHECK(hipModuleLoadDataEx(&module_per_card_[device_id],
-                                           load_path, //data_.c_str(),
+                                           data_.c_str(), //data_.c_str(),
                                            jit_num_options,
                                            jit_options.data(),
                                            jit_opt_vals.data()));

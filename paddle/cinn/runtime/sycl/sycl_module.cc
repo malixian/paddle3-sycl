@@ -42,8 +42,8 @@ SYCLModule::~SYCLModule() {
 void* SYCLModule::GetFunction(const std::string& func_name) {
   std::lock_guard<std::mutex> lock(mutex_);
   if (so_handler_ == nullptr) {
-    //so_handler_ = dlopen(shared_library_.c_str(), RTLD_NOW | RTLD_GLOBAL);
-    so_handler_ = dlopen("/home/malixian/repos/paddle-sycl-dev/Paddle-test/ops/source/my_sycl.so", RTLD_NOW | RTLD_GLOBAL);
+    so_handler_ = dlopen(shared_library_.c_str(), RTLD_NOW | RTLD_GLOBAL);
+    //so_handler_ = dlopen("/home/malixian/repos/paddle-sycl-dev/Paddle-test/ops/source/my_sycl.so", RTLD_NOW | RTLD_GLOBAL);
   }
   VLOG(5) << "getting function " << func_name;
   CHECK(so_handler_ != nullptr) << "ERROR:" << dlerror();
