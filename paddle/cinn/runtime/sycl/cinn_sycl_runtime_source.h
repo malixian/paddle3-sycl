@@ -558,39 +558,33 @@ inline bool cinn_any(const bool left, const bool right) {
   tmp_mem[local_linear_id] = tmp_val;                                          \
   item_ct1.barrier(sycl::access::fence_space::local_space);                    \
   if (lane_offset_id < MAX_SUBGROUP_SIZE) {                                    \
-    shfl_res = tmp_mem[local_linear_id + offset];            \
+    shfl_res = tmp_mem[local_linear_id + offset];                              \
   } else {                                                                     \
-    shfl_res = tmp_mem[local_linear_id];                     \
+    shfl_res = tmp_mem[local_linear_id];                                       \
   }                                                                            \
   item_ct1.barrier(sycl::access::fence_space::local_space);                    \
   tmp_val = op((thread_id_x + offset < block_dim) ? shfl_res : init, tmp_val); \
   tmp_mem[local_linear_id] = tmp_val;                                          \
   item_ct1.barrier(sycl::access::fence_space::local_space);
 
-#define CINN_SHUFFLE_FUNCTION(target_lane_id)         \
+#define CINN_SHUFFLE_FUNCTION(target_lane_id)               \
   target_linear_id = warp_first_linear_id + target_lane_id; \
   tmp_val = tmp_mem[target_linear_id];
 
-#define CINN_SHUFFLE_XOR_FUNCTION(offset)                                  \
-  unsigned int new_lane_id = lane_id + block_dim - last_warp_size;  \
-  unsigned int target_new_lane_id = new_lane_id ^ offset; ;                       \
-  target_linear_id = warp_first_linear_id + target_new_lane_id + last_warp_size - block_dim;   \
-  out << "Before shuffle xor offset:"<<offset                                  \
-            << ", lane_id:"<<lane_id<<", last_warp_size:"<<last_warp_size       \
-            << ", warp_id:" << warp_id << ", new lane_id:" << new_lane_id              \
-            << ", target_linear_id:" << target_linear_id << ", target_new_lane_id:" << target_new_lane_id \
-            << ", threadIdx:" << item_ct1.get_local_id(0)                      \
-            << ", threadIdy:" << item_ct1.get_local_id(1)                      \
-            << ", tmp_val:" << tmp_val << "\n";   \
-  tmp_mem[local_linear_id] = tmp_val;                                      \
-  item_ct1.barrier(sycl::access::fence_space::local_space);                \
-  if (target_new_lane_id < MAX_SUBGROUP_SIZE && target_new_lane_id < (last_warp_size - block_dim))    \
-    xor_ret = tmp_mem[target_linear_id];                                   \
-  else                                                                     \
-    xor_ret = 0;                                                            \
-  item_ct1.barrier(sycl::access::fence_space::local_space);                \
-  
-
+#define CINN_SHUFFLE_XOR_FUNCTION(offset)                                     \
+  unsigned int new_lane_id = lane_id + block_dim - last_warp_size;            \
+  unsigned int target_new_lane_id = new_lane_id ^ offset;                     \
+  ;                                                                           \
+  target_linear_id =                                                          \
+      warp_first_linear_id + target_new_lane_id + last_warp_size - block_dim; \
+  tmp_mem[local_linear_id] = tmp_val;                                         \
+  item_ct1.barrier(sycl::access::fence_space::local_space);                   \
+  if (target_new_lane_id < MAX_SUBGROUP_SIZE &&                               \
+      target_new_lane_id < (last_warp_size - block_dim))                      \
+    xor_ret = tmp_mem[target_linear_id];                                      \
+  else                                                                        \
+    xor_ret = 0;                                                              \
+  item_ct1.barrier(sycl::access::fence_space::local_space);
 
 #define CINN_WARP_SHUFFLE_INTERNAL_IMPL(REDUCE_TYPE, INITIAL_VALUE, DTYPE)     \
   inline DTYPE cinn_warp_shuffle_##REDUCE_TYPE##_internal(                     \
@@ -603,33 +597,27 @@ inline bool cinn_any(const bool left, const bool right) {
     unsigned int block_dim = item_ct1.get_local_range(0);                      \
     unsigned int lane_id = local_linear_id % MAX_SUBGROUP_SIZE;                \
     unsigned int warp_id = local_linear_id / MAX_SUBGROUP_SIZE;                \
-    unsigned int last_warp_size = block_dim - (thread_id_x - lane_id);     \
-    unsigned int warp_first_linear_id = warp_id * MAX_SUBGROUP_SIZE;       \
-    unsigned int target_linear_id = warp_first_linear_id;          \
-    sycl::range<3> global_size = item_ct1.get_global_range();                      \
+    unsigned int last_warp_size = block_dim - (thread_id_x - lane_id);         \
+    unsigned int warp_first_linear_id = warp_id * MAX_SUBGROUP_SIZE;           \
+    unsigned int target_linear_id = warp_first_linear_id;                      \
+    sycl::range<3> global_size = item_ct1.get_global_range();                  \
     size_t total_threads = global_size[0] * global_size[1] * global_size[2];   \
     auto tmp_mem =                                                             \
-        *sycl::group_local_memory<DTYPE[128]>(item_ct1.get_group()); \
+        *sycl::group_local_memory<DTYPE[128]>(item_ct1.get_group());           \
     if (last_warp_size < MAX_SUBGROUP_SIZE) {                                  \
       for (unsigned int offset = MAX_SUBGROUP_SIZE / 2; offset >= 1;           \
            offset /= 2) {                                                      \
         CINN_SHUFFLE_DOWN_FUNCTION(                                            \
             offset, cinn_##REDUCE_TYPE, (DTYPE)(INITIAL_VALUE))                \
       }                                                                        \
-      CINN_SHUFFLE_FUNCTION(0)                                                \
+      CINN_SHUFFLE_FUNCTION(0)                                                 \
       return tmp_val;                                                          \
     } else {                                                                   \
-      for (unsigned int offset = MAX_SUBGROUP_SIZE / 2; offset >= 1;          \
+      for (unsigned int offset = MAX_SUBGROUP_SIZE / 2; offset >= 1;           \
            offset /= 2) {                                                      \
-        DTYPE xor_ret;                                                          \
-        CINN_SHUFFLE_XOR_FUNCTION(offset)                                       \
-        tmp_val = cinn_##REDUCE_TYPE(tmp_val, xor_ret);                          \
-        out << "After shuffle xor offset:"<<offset                                \
-            << ", warp_id:" << warp_id << ", new lane_id:" << new_lane_id              \
-            << ", target_linear_id:" << target_linear_id << ", target_new_lane_id:" << target_new_lane_id \
-            << ", threadIdx:" << item_ct1.get_local_id(0)                      \
-            << ", threadIdy:" << item_ct1.get_local_id(1)                      \
-            << ", xor_ret:"<<xor_ret<<", tmp_val:" << tmp_val << "\n";   \
+        DTYPE xor_ret;                                                         \
+        CINN_SHUFFLE_XOR_FUNCTION(offset)                                      \
+        tmp_val = cinn_##REDUCE_TYPE(tmp_val, xor_ret);                        \
       }                                                                        \
       return tmp_val;                                                          \
     }                                                                          \
@@ -650,20 +638,6 @@ EXPAND_REDUCE_FP16_MACRO(CINN_WARP_SHUFFLE_INTERNAL_IMPL)
 #endif
 
 #undef CINN_WARP_SHUFFLE_INTERNAL_IMPL
-
-/* #define CINN_WARP_REDUCE_IMPL(REDUCE_TYPE, INITIAL_VALUE, DTYPE)          \
-  inline DTYPE cinn_warp_reduce_##REDUCE_TYPE(                            \
-      const DTYPE *buf,                                                   \
-      int offset,                                                         \
-      int extend,                                                         \
-      const sycl::nd_item<3> &item_ct1, sycl::stream out) { \
-    DTYPE tmp_val = (DTYPE)(INITIAL_VALUE);                               \
-    for (int i = item_ct1.get_local_id()[0]; i < extend;                  \
-         i += MAX_SUBGROUP_SIZE) {                                        \
-      tmp_val = cinn_##REDUCE_TYPE(tmp_val, buf[offset + i]);             \
-    }                                                                     \
-    return cinn_warp_shuffle_##REDUCE_TYPE##_internal(tmp_val, item_ct1, out); \
-  } */
 
 #define CINN_WARP_REDUCE_IMPL(REDUCE_TYPE, INITIAL_VALUE, DTYPE)               \
   inline DTYPE cinn_warp_reduce_##REDUCE_TYPE(                                 \

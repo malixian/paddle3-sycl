@@ -370,18 +370,20 @@ __device__ inline bool cinn_any(const bool left, const bool right) {
   return left || right;
 }
 
-
 #define CINN_SHUFFLE_FUNCTION(offset, op, init)       \
   shfl_res = __shfl_down(tmp_val, offset, WARP_SIZE); \
-  tmp_val = op(thread_id + offset < block_dim ? shfl_res : init, tmp_val); \
+  tmp_val = op(thread_id + offset < block_dim ? shfl_res : init, tmp_val);
 
-/* #define CINN_WARP_SHUFFLE_INTERNAL_IMPL(REDUCE_TYPE, INITIAL_VALUE, DTYPE)    \
+#define CINN_WARP_SHUFFLE_INTERNAL_IMPL(REDUCE_TYPE, INITIAL_VALUE, DTYPE)    \
   __device__ inline DTYPE cinn_warp_shuffle_##REDUCE_TYPE##_internal(         \
       const DTYPE value) {                                                    \
-    DTYPE tmp_val = value, shfl_res=0.0;                                      \
+    DTYPE tmp_val = value, shfl_res = 0.0;                                    \
     unsigned int thread_id = threadIdx.x;                                     \
     unsigned int block_dim = blockDim.x;                                      \
     unsigned int last_warp_size = block_dim - (thread_id - __lane_id());      \
+    unsigned int lane_id = __lane_id();                                       \
+    unsigned int thread_global_id = threadIdx.x + (threadIdx.y * blockDim.x); \
+    unsigned int warp_id = thread_global_id / warpSize;                       \
     if (last_warp_size < WARP_SIZE) {                                         \
       for (unsigned int offset = WARP_SIZE / 2; offset >= 1; offset /= 2) {   \
         CINN_SHUFFLE_FUNCTION(                                                \
@@ -391,29 +393,11 @@ __device__ inline bool cinn_any(const bool left, const bool right) {
       return tmp_val;                                                         \
     } else {                                                                  \
       for (unsigned int offset = WARP_SIZE / 2; offset >= 1; offset /= 2) {   \
-        tmp_val = cinn_##REDUCE_TYPE(tmp_val,                                 \
-                                     __shfl_xor(tmp_val, offset, WARP_SIZE)); \
+        tmp_val = cinn_##REDUCE_TYPE(tmp_val, xor_ret);                       \
       }                                                                       \
       return tmp_val;                                                         \
     }                                                                         \
-  } */
-
-  #define CINN_WARP_SHUFFLE_INTERNAL_IMPL(REDUCE_TYPE, INITIAL_VALUE, DTYPE)  \
-  __device__ inline DTYPE cinn_warp_shuffle_##REDUCE_TYPE##_internal(         \
-      const DTYPE value) {                                                    \
-    DTYPE tmp_val = value, shfl_res=0.0;                                      \
-    unsigned int thread_id = threadIdx.x;                                     \
-    unsigned int block_dim = blockDim.x;                                      \
-    unsigned int last_warp_size = block_dim - (thread_id - __lane_id());      \
-    unsigned int lane_id = __lane_id();                                       \
-    unsigned int thread_global_id=threadIdx.x+(threadIdx.y * blockDim.x);     \
-    unsigned int warp_id = thread_global_id / warpSize;                             \
-    for (unsigned int offset = WARP_SIZE / 2; offset >= 16; offset /= 2) {   \
-      CINN_SHUFFLE_FUNCTION(                                                \
-          offset, cinn_##REDUCE_TYPE, (DTYPE)(INITIAL_VALUE))               \
-    }                                                                       \
-    return tmp_val;                                                         \
-    }  
+  }
 
 EXPAND_REDUCE_INT32_MARCO(CINN_WARP_SHUFFLE_INTERNAL_IMPL)
 EXPAND_REDUCE_INT64_MARCO(CINN_WARP_SHUFFLE_INTERNAL_IMPL)
@@ -604,29 +588,39 @@ EXPAND_REDUCE_FP16_MACRO(CINN_DISCRETE_REDUCE_INTERNAL_SHM_MACRO)
 #undef CINN_DISCRETE_REDUCE_INTERNAL_SHM_IMPL
 #undef CINN_DISCRETE_REDUCE_INTERNAL_SHM_MACRO
 
-#define CINN_PARTIAL_BLOCK_REDUCE_INTERNAL_SHM_IMPL(TYPE, value, init_value, cinn_warp_shuffle_internal) \
-  int tid = threadIdx.y * blockDim.x + threadIdx.x;                                                  \
-  int warp_id = tid >> 5;                                                                            \
-  int row_dim =  (blockDim.x + 31) >> 5;                                                             \
-  TYPE tmp_val = cinn_warp_shuffle_internal(value);                                                  \
-  if (blockDim.x <= 32) {                                                                            \
-    return tmp_val;                                                                                  \
-  }                                                                                                  \
-  __syncthreads();                                                                                   \
-  if ((tid & 31) == 0) {                                                                             \
-    shm[warp_id] = tmp_val;                                                                          \
-  }                                                                                                  \
-  __syncthreads();                                                                                   \
-  if (threadIdx.x < 32) {                                                                            \
-    tmp_val = (threadIdx.x < row_dim) ? shm[threadIdx.y * row_dim + threadIdx.x] : init_value;       \
-    shm[warp_id] = cinn_warp_shuffle_internal(tmp_val);                                              \
-  }                                                                                                  \
-  __syncthreads();                                                                                   \
+#define CINN_PARTIAL_BLOCK_REDUCE_INTERNAL_SHM_IMPL(         \
+    TYPE, value, init_value, cinn_warp_shuffle_internal)     \
+  int tid = threadIdx.y * blockDim.x + threadIdx.x;          \
+  int warp_id = tid >> 5;                                    \
+  int row_dim = (blockDim.x + 31) >> 5;                      \
+  TYPE tmp_val = cinn_warp_shuffle_internal(value);          \
+  if (blockDim.x <= 32) {                                    \
+    return tmp_val;                                          \
+  }                                                          \
+  __syncthreads();                                           \
+  if ((tid & 31) == 0) {                                     \
+    shm[warp_id] = tmp_val;                                  \
+  }                                                          \
+  __syncthreads();                                           \
+  if (threadIdx.x < 32) {                                    \
+    tmp_val = (threadIdx.x < row_dim)                        \
+                  ? shm[threadIdx.y * row_dim + threadIdx.x] \
+                  : init_value;                              \
+    shm[warp_id] = cinn_warp_shuffle_internal(tmp_val);      \
+  }                                                          \
+  __syncthreads();                                           \
   return shm[threadIdx.y * row_dim];
 
-#define CINN_PARTIAL_BLOCK_REDUCE_INTERNAL_SHM_MACRO(REDUCE_TYPE, INITIAL_VALUE, DTYPE)                                                                \
-  __device__ inline DTYPE cinn_partial_block_reduce_##REDUCE_TYPE##_internal_shm(const DTYPE value, DTYPE* shm, bool return_warp = false) {            \
-    CINN_PARTIAL_BLOCK_REDUCE_INTERNAL_SHM_IMPL(DTYPE, value, (DTYPE)(INITIAL_VALUE), cinn_warp_shuffle_##REDUCE_TYPE##_internal);                      \
+#define CINN_PARTIAL_BLOCK_REDUCE_INTERNAL_SHM_MACRO(                \
+    REDUCE_TYPE, INITIAL_VALUE, DTYPE)                               \
+  __device__ inline DTYPE                                            \
+      cinn_partial_block_reduce_##REDUCE_TYPE##_internal_shm(        \
+          const DTYPE value, DTYPE *shm, bool return_warp = false) { \
+    CINN_PARTIAL_BLOCK_REDUCE_INTERNAL_SHM_IMPL(                     \
+        DTYPE,                                                       \
+        value,                                                       \
+        (DTYPE)(INITIAL_VALUE),                                      \
+        cinn_warp_shuffle_##REDUCE_TYPE##_internal);                 \
   }
 EXPAND_REDUCE_INT32_MARCO(CINN_PARTIAL_BLOCK_REDUCE_INTERNAL_SHM_MACRO)
 EXPAND_REDUCE_INT64_MARCO(CINN_PARTIAL_BLOCK_REDUCE_INTERNAL_SHM_MACRO)
@@ -669,16 +663,18 @@ EXPAND_REDUCE_FP16_MACRO(CINN_BLOCK_REDUCE_IMPL)
 
 #undef CINN_BLOCK_REDUCE_IMPL
 
-#define CINN_GRID_REDUCE_IMPL(REDUCE_TYPE, init_value, DTYPE)                       \
-  DTYPE tmp_val = init_value;                                                       \
-  for (int y = 0; y < gridDim.y; y++) {                                             \
-      tmp_val = cinn_##REDUCE_TYPE(tmp_val, mem[y * spatial_size + spatial_index]); \
-  }                                                                                 \
+#define CINN_GRID_REDUCE_IMPL(REDUCE_TYPE, init_value, DTYPE)               \
+  DTYPE tmp_val = init_value;                                               \
+  for (int y = 0; y < gridDim.y; y++) {                                     \
+    tmp_val =                                                               \
+        cinn_##REDUCE_TYPE(tmp_val, mem[y * spatial_size + spatial_index]); \
+  }                                                                         \
   return tmp_val;
 
-#define CINN_GRID_REDUCE_MACRO(REDUCE_TYPE, INITIAL_VALUE, DTYPE)                   \
-  __device__ inline DTYPE cinn_grid_reduce_##REDUCE_TYPE(const DTYPE* mem, int spatial_size, int spatial_index) { \
-    CINN_GRID_REDUCE_IMPL(REDUCE_TYPE, (DTYPE)(INITIAL_VALUE), DTYPE);           \
+#define CINN_GRID_REDUCE_MACRO(REDUCE_TYPE, INITIAL_VALUE, DTYPE)      \
+  __device__ inline DTYPE cinn_grid_reduce_##REDUCE_TYPE(              \
+      const DTYPE *mem, int spatial_size, int spatial_index) {         \
+    CINN_GRID_REDUCE_IMPL(REDUCE_TYPE, (DTYPE)(INITIAL_VALUE), DTYPE); \
   }
 
 EXPAND_REDUCE_INT32_MARCO(CINN_GRID_REDUCE_MACRO)
