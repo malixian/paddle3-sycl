@@ -558,12 +558,10 @@ inline bool cinn_any(const bool left, const bool right) {
   tmp_mem[local_linear_id] = tmp_val;                                          \
   item_ct1.barrier(sycl::access::fence_space::local_space);                    \
   if (lane_offset_id < MAX_SUBGROUP_SIZE) {                                    \
-    local_mem[local_linear_id] = tmp_mem[local_linear_id + offset];            \
+    shfl_res = tmp_mem[local_linear_id + offset];            \
   } else {                                                                     \
-    local_mem[local_linear_id] = tmp_mem[local_linear_id];                     \
+    shfl_res = tmp_mem[local_linear_id];                     \
   }                                                                            \
-  item_ct1.barrier(sycl::access::fence_space::local_space);                    \
-  shfl_res = local_mem[local_linear_id];                                       \
   item_ct1.barrier(sycl::access::fence_space::local_space);                    \
   tmp_val = op((thread_id_x + offset < block_dim) ? shfl_res : init, tmp_val); \
   tmp_mem[local_linear_id] = tmp_val;                                          \
@@ -610,8 +608,6 @@ inline bool cinn_any(const bool left, const bool right) {
     unsigned int target_linear_id = warp_first_linear_id;          \
     sycl::range<3> global_size = item_ct1.get_global_range();                      \
     size_t total_threads = global_size[0] * global_size[1] * global_size[2];   \
-    auto local_mem =                                                           \
-        *sycl::group_local_memory<DTYPE[128]>(item_ct1.get_group()); \
     auto tmp_mem =                                                             \
         *sycl::group_local_memory<DTYPE[128]>(item_ct1.get_group()); \
     if (last_warp_size < MAX_SUBGROUP_SIZE) {                                  \
