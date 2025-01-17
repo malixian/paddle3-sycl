@@ -571,20 +571,20 @@ inline bool cinn_any(const bool left, const bool right) {
   target_linear_id = warp_first_linear_id + target_lane_id; \
   tmp_val = tmp_mem[target_linear_id];
 
-#define CINN_SHUFFLE_XOR_FUNCTION(offset)                                     \
-  unsigned int new_lane_id = lane_id + block_dim - last_warp_size;            \
-  unsigned int target_new_lane_id = new_lane_id ^ offset;                     \
-  ;                                                                           \
-  target_linear_id =                                                          \
-      warp_first_linear_id + target_new_lane_id + last_warp_size - block_dim; \
-  tmp_mem[local_linear_id] = tmp_val;                                         \
-  item_ct1.barrier(sycl::access::fence_space::local_space);                   \
-  if (target_new_lane_id < MAX_SUBGROUP_SIZE &&                               \
-      target_new_lane_id < (last_warp_size - block_dim))                      \
-    xor_ret = tmp_mem[target_linear_id];                                      \
-  else                                                                        \
-    xor_ret = 0;                                                              \
-  item_ct1.barrier(sycl::access::fence_space::local_space);
+#define CINN_SHUFFLE_XOR_FUNCTION(offset)                                  \
+  unsigned int new_lane_id = lane_id - (last_warp_size - MAX_SUBGROUP_SIZE);  \
+  unsigned int target_new_lane_id = new_lane_id ^ offset;                       \
+  target_linear_id = local_linear_id + target_new_lane_id - new_lane_id;   \
+  unsigned int target_thread_id_x = target_linear_id % item_ct1.get_local_range(0); \
+  unsigned int target_lane_id = target_linear_id % MAX_SUBGROUP_SIZE;                      \
+  tmp_mem[local_linear_id] = tmp_val;                                      \
+  item_ct1.barrier(sycl::access::fence_space::local_space);                \
+  unsigned int target_last_warp_size = block_dim - (target_thread_id_x - target_lane_id);      \
+  if (target_new_lane_id < MAX_SUBGROUP_SIZE && target_last_warp_size >= MAX_SUBGROUP_SIZE)    \
+    xor_ret = tmp_mem[target_linear_id];                                   \
+  else                                                                     \
+    xor_ret = 0;                                                            \
+  item_ct1.barrier(sycl::access::fence_space::local_space);   
 
 #define CINN_WARP_SHUFFLE_INTERNAL_IMPL(REDUCE_TYPE, INITIAL_VALUE, DTYPE)   \
   inline DTYPE cinn_warp_shuffle_##REDUCE_TYPE##_internal(                   \
