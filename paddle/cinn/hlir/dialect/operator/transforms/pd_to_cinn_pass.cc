@@ -29,6 +29,8 @@
 #include "paddle/pir/include/pass/pass_manager.h"
 #include "paddle/pir/include/pattern_rewrite/pattern_rewrite_driver.h"
 
+
+PD_DECLARE_bool(cinn_gen_sycl);
 PD_DECLARE_string(deny_cinn_ops);
 
 namespace cinn {
@@ -1154,13 +1156,15 @@ pir::RewritePatternSet PdOpToCinnOpPass::InitializePatterns(
   pir::RewritePatternSet ps(context);
   ps.Add<ScaleOpPattern>(
       context);  // NOTE, scale op pattern should before AddBroadcastTo
-  /*
-  ps.Add<SumOpPattern>(context);
-  ps.Add<ReduceMinMaxOpPattern<paddle::dialect::MinOp,
+  
+  if (!FLAGS_cinn_gen_sycl) {
+    ps.Add<SumOpPattern>(context);
+    ps.Add<ReduceMinMaxOpPattern<paddle::dialect::MinOp,
                                cinn::dialect::ReduceMinOp>>(context);
-  ps.Add<ReduceMinMaxOpPattern<paddle::dialect::MaxOp,
+    ps.Add<ReduceMinMaxOpPattern<paddle::dialect::MaxOp,
                                cinn::dialect::ReduceMaxOp>>(context);
-  */
+  }
+  
   ps.Add<ProdOpPattern>(context);
   ps.Add<ReshapeOpPattern>(context);
   ps.Add<PowOpPattern>(context);

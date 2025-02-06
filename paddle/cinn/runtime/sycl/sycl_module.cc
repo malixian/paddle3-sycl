@@ -56,7 +56,7 @@ void* SYCLModule::GetFunction(const std::string& func_name) {
                 ::sycl::range<3> k0_dimBlock,
                 void** void_args)) dlsym(so_handler_, func_name.c_str());
   CHECK(kernel_func != nullptr) << "ERROR:" << dlerror() << ":dlsym\n";
-  std::cout<<" ================= [CINN Debug] getting function name: "<<func_name<<"kernel_fn: "<<reinterpret_cast<void*>(kernel_func)<<std::endl;
+  //std::cout<<" ================= [CINN Debug] getting function name: "<<func_name<<"kernel_fn: "<<reinterpret_cast<void*>(kernel_func)<<std::endl;
   return reinterpret_cast<void*>(kernel_func);
 }
 

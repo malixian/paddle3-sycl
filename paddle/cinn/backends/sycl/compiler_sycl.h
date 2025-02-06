@@ -42,6 +42,8 @@ class Compiler {
    * Get the directories of CINN runtime's header files.
    * @return list of header file directories.
    */
+  std::mutex mutex_;
+  
   std::vector<std::string> FindCINNRuntimeIncludePaths();
   // compile to share library
   std::string CompileToSo(const std::string& code, const Arch gpu_type);

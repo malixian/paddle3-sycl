@@ -31,6 +31,7 @@ Compiler* Compiler::Global() {
 
 std::string Compiler::operator()(const std::string& code
                                  ) {
+  std::lock_guard<std::mutex> lock(mutex_);
   Arch gpu_type = cinn::common::HygonDCUArchSYCL{};
   return CompileToSo(code, gpu_type);
 }
@@ -41,6 +42,7 @@ std::vector<std::string> Compiler::FindCINNRuntimeIncludePaths() {
 
 std::string Compiler::CompileToSo(const std::string& source_code,
                                   const Arch gpu_type) {
+  
   // create the folder to store sycl temporary files
   if (access(prefix_dir.c_str(), F_OK) == -1) {
     PADDLE_ENFORCE_NE(
