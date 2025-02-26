@@ -105,6 +105,7 @@ class CUDAStream {
 
   bool Query() const {
 #ifdef PADDLE_WITH_HIP
+    /*
     hipError_t err = hipStreamQuery(raw_stream());
     if (err == hipSuccess) {
       return true;
@@ -112,6 +113,10 @@ class CUDAStream {
     if (err == hipErrorNotReady) {
       return false;
     }
+    */
+    std::cout<<"===== Query() stream query ======="<<std::endl;
+    hipError_t err = hipSuccess;	  
+    return true;	  
 #else
     cudaError_t err = cudaStreamQuery(raw_stream());
     if (err == cudaSuccess) {

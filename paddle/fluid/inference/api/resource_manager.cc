@@ -265,6 +265,7 @@ std::function<phi::dnnHandle_t()> GPUContextResource::GetDnnHandleCreator() {
 blasHandle_t GPUContextResource::GetBlasHandle() const { return blas_handle_; }
 
 std::function<phi::blasHandle_t()> GPUContextResource::GetBlasHandleCreator() {
+  
   return [&]() -> phi::blasHandle_t {
     phi::InitBlasHandle(&blas_handle_, stream_);
     return blas_handle_;

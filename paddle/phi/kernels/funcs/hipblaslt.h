@@ -29,7 +29,7 @@ class CublasLtHelper {
 
     // matmul desc
     status = dyl::hipblasLtMatmulDescCreate(
-        &matmul_desc_, hipComputeType, HIP_DATATYPE_R_32I);
+        &matmul_desc_, hipComputeType, HIP_R_32I);
 
     PADDLE_ENFORCE_EQ(
         status,
@@ -47,21 +47,21 @@ class CublasLtHelper {
 
     // matrix desc
     status =
-        dyl::hipblasLtMatrixLayoutCreate(&B_desc_, HIP_DATATYPE_R_8I, k, n, k);
+        dyl::hipblasLtMatrixLayoutCreate(&B_desc_, HIP_R_8I, k, n, k);
     PADDLE_ENFORCE_EQ(status,
                       HIPBLAS_STATUS_SUCCESS,
                       common::errors::External(
                           "hipblasLtMatrixLayoutCreate execution error"));
 
     status =
-        dyl::hipblasLtMatrixLayoutCreate(&A_desc_, HIP_DATATYPE_R_8I, k, m, k);
+        dyl::hipblasLtMatrixLayoutCreate(&A_desc_, HIP_R_8I, k, m, k);
     PADDLE_ENFORCE_EQ(status,
                       HIPBLAS_STATUS_SUCCESS,
                       common::errors::External(
                           "hipblasLtMatrixLayoutCreate execution error"));
 
     status =
-        dyl::hipblasLtMatrixLayoutCreate(&C_desc_, HIP_DATATYPE_R_32I, n, m, n);
+        dyl::hipblasLtMatrixLayoutCreate(&C_desc_, HIP_R_32I, n, m, n);
     PADDLE_ENFORCE_EQ(status,
                       HIPBLAS_STATUS_SUCCESS,
                       common::errors::External(
@@ -118,18 +118,18 @@ class CublasLtHelper {
 };
 
 template <typename T>
-inline hipDataType_t GetCublasLtDataType() {
-  return HIP_DATATYPE_R_32F;
+inline hipDataType GetCublasLtDataType() {
+  return HIP_R_32F;
 }
 
 template <>
-inline hipDataType_t GetCublasLtDataType<phi::dtype::float16>() {
-  return HIP_DATATYPE_R_16F;
+inline hipDataType GetCublasLtDataType<phi::dtype::float16>() {
+  return HIP_R_16F;
 }
 
 template <>
-inline hipDataType_t GetCublasLtDataType<phi::dtype::bfloat16>() {
-  return HIP_DATATYPE_R_16BF;
+inline hipDataType GetCublasLtDataType<phi::dtype::bfloat16>() {
+  return HIP_R_16BF;
 }
 
 template <typename T>

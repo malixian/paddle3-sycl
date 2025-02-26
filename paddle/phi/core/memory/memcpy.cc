@@ -259,6 +259,7 @@ inline void SyncCUDAStream() {
 #if !defined(_WIN32)
   hipStreamSynchronize(0);
 #else
+  std::cout<<"========= sycncudastream ========"<<std::endl;
   hipError_t e_sync = hipSuccess;
   while (e_sync = hipStreamQuery(0)) {
     if (e_sync == hipErrorNotReady) continue;

@@ -182,7 +182,9 @@ class CudaEvent {
     }
     if (err == hipErrorNotReady) {
       return false;
-    }
+    } 
+    std::cout<<"======= call profiler Query ========="<<std::endl;
+    return true;
 #else
     gpuError_t err = cudaEventQuery(event_);
     if (err == cudaSuccess) {

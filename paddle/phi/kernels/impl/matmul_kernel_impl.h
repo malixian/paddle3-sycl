@@ -122,7 +122,7 @@ void MatMulFunctionImplWithBlas(
   // Get data ptr
   const T* x_data = X.data<T>();
   const T* y_data = Y.data<T>();
-
+   
   auto blas = phi::funcs::GetBlas<Context, T>(dev_ctx);
 
   if (x_ndim == 1 && y_ndim == 1) {

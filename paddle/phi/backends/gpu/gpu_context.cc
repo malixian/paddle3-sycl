@@ -420,6 +420,7 @@ struct GPUContext::Impl {
 #endif
 #endif
     });
+    phi::dynload::rocblas_set_stream(blas_handle_, stream());
     PADDLE_ENFORCE_NOT_NULL(
         blas_handle_,
         common::errors::InvalidArgument(
@@ -485,6 +486,7 @@ struct GPUContext::Impl {
         dnn_handle_,
         common::errors::InvalidArgument(
             "The GPU dnn handle is nullptr. It must not be null."));
+    dynload::miopenSetStream(dnn_handle_, stream());
     return dnn_handle_;
   }
 
@@ -560,10 +562,12 @@ struct GPUContext::Impl {
 #if !defined(_WIN32)
     e_sync = hipStreamSynchronize(stream());
 #else
+    std::cout<<"======== wait stream query ========"<<std::endl; 
     while (e_sync = hipStreamQuery(stream())) {
       if (e_sync == hipErrorNotReady) continue;
       break;
     }
+   
 #endif  // !defined(_WIN32)
 #else   // PADDLE_WITH_HIP
     cudaError_t e_sync = cudaSuccess;
@@ -644,6 +648,8 @@ struct GPUContext::Impl {
       std::lock_guard<std::mutex> guard(blas_mtx_);
       callback(blas_handle_);
     }
+
+    phi::dynload::rocblas_set_stream(blas_handle_, stream());
   }
 
   inline void TensorCoreCublasCallIfAvailable(

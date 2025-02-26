@@ -105,6 +105,7 @@ bool StreamSafeCUDAAllocation::CanBeFreed() {
     PADDLE_ENFORCE_GPU_SUCCESS(err);
     PADDLE_ENFORCE_GPU_SUCCESS(cudaEventDestroy(event));
 #else
+    /*
     gpuError_t err = hipEventQuery(event);
     if (err == hipErrorNotReady) {
       VLOG(9) << "Event " << event << " for " << ptr() << " is not completed";
@@ -114,6 +115,7 @@ bool StreamSafeCUDAAllocation::CanBeFreed() {
     }
     PADDLE_ENFORCE_GPU_SUCCESS(err);
     PADDLE_ENFORCE_GPU_SUCCESS(hipEventDestroy(event));
+    */
 #endif
     VLOG(8) << "Destroy event " << event;
   }
@@ -155,7 +157,7 @@ void StreamSafeCUDAAllocation::RecordStreamWithNoGraphCapturing(
 #ifdef PADDLE_WITH_CUDA
   PADDLE_ENFORCE_GPU_SUCCESS(cudaEventRecord(record_event, stream));
 #else
-  PADDLE_ENFORCE_GPU_SUCCESS(hipEventRecord(record_event, stream));
+  //PADDLE_ENFORCE_GPU_SUCCESS(hipEventRecord(record_event, stream));
 #endif
   VLOG(8) << "Record event " << record_event << " to stream " << stream;
 }

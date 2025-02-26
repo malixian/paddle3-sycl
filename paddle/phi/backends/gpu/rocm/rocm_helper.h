@@ -101,19 +101,19 @@ hipDataType ToHipDataType() {
 }
 
 template <typename T>
-hipDataType_t ToHipBlasLtDataType() {
+hipDataType ToHipBlasLtDataType() {
   if (std::is_same<T, float>::value) {
-    return HIP_DATATYPE_R_32F;
+    return HIP_R_32F;
   } else if (std::is_same<T, double>::value) {
-    return HIP_DATATYPE_R_64F;
+    return HIP_R_64F;
   } else if (std::is_same<T, phi::dtype::float16>::value) {
-    return HIP_DATATYPE_R_16F;
+    return HIP_R_16F;
   } else if (std::is_same<T, phi::dtype::bfloat16>::value) {
-    return HIP_DATATYPE_R_16BF;
+    return HIP_R_16BF;
   } else if (std::is_same<T, int8_t>::value) {
-    return HIP_DATATYPE_R_8I;
+    return HIP_R_8I;
   } else if (std::is_same<T, int32_t>::value) {
-    return HIP_DATATYPE_R_32I;
+    return HIP_R_32I;
   } else {
     PADDLE_THROW(common::errors::InvalidArgument(
         "DataType %s is unsupported for ROCm.",

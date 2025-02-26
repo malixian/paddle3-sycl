@@ -38,7 +38,7 @@ gather_srcs(
   rearrange_load_instruction.cc
   check_tensor_buffer_map.cc)
 
-if(CINN_WITH_CUDA OR CINN_WITH_ROCM OR CINN_WITH_SYCL)
+if(CINN_WITH_CUDA OR CINN_WITH_HIP OR CINN_WITH_SYCL)
   gather_srcs(cinnapi_src SRCS transform_gpu_forloop.cc)
 endif()
 

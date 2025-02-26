@@ -196,10 +196,10 @@ struct MatmulDescriptor {
   int64_t N_{-1};
   int64_t K_{-1};
   hipblasComputeType_t compute_type_;
-  hipDataType_t scale_type_;
-  hipDataType_t x_type_;
-  hipDataType_t y_type_;
-  hipDataType_t out_type_;
+  hipDataType scale_type_;
+  hipDataType x_type_;
+  hipDataType y_type_;
+  hipDataType out_type_;
 
   MatmulDescriptor() {}
   MatmulDescriptor(const MatmulDescriptor& obj) {
@@ -252,9 +252,9 @@ struct MatmulDescriptor {
               const int64_t stride_out = 0,
               bool grad_for_dx = true) {
     using MT = typename phi::dtype::MPTypeTrait<T>::Type;
-    hipDataType_t mat_type = phi::backends::gpu::ToHipBlasLtDataType<T>();
-    hipDataType_t out_mat_type = phi::backends::gpu::ToHipBlasLtDataType<T>();
-    hipDataType_t scale_type = phi::backends::gpu::ToHipBlasLtDataType<MT>();
+    hipDataType mat_type = phi::backends::gpu::ToHipBlasLtDataType<T>();
+    hipDataType out_mat_type = phi::backends::gpu::ToHipBlasLtDataType<T>();
+    hipDataType scale_type = phi::backends::gpu::ToHipBlasLtDataType<MT>();
     hipblasComputeType_t compute_type = GetHipComputeType<T>();
 
     if (std::is_same<T, int8_t>::value) {
@@ -301,7 +301,7 @@ struct MatmulDescriptor {
   void SetFusedEpiloguePtr(phi::funcs::MatmulPlanner* planner) {
     if (planner->bias != nullptr) {
       const T* bias_data = static_cast<const T*>(planner->bias);
-      hipDataType_t bias_type = phi::backends::gpu::ToHipBlasLtDataType<T>();
+      hipDataType bias_type = phi::backends::gpu::ToHipBlasLtDataType<T>();
       PADDLE_ENFORCE_GPU_SUCCESS(dynload::hipblasLtMatmulDescSetAttribute(
           op_desc,
           HIPBLASLT_MATMUL_DESC_BIAS_POINTER,
@@ -368,7 +368,7 @@ struct MatmulDescriptor {
   }
 
   void CreateMatrixLayout(hipblasLtMatrixLayout_t* desc,
-                          hipDataType_t type,
+                          hipDataType type,
                           uint64_t rows,
                           uint64_t cols,
                           bool trans) {
@@ -414,8 +414,8 @@ struct MatmulGradDescriptor : MatmulDescriptor {
               int64_t stride_out = 0,
               bool grad_for_dx = true) {
     using MT = typename phi::dtype::MPTypeTrait<T>::Type;
-    hipDataType_t mat_type = phi::backends::gpu::ToHipBlasLtDataType<T>();
-    hipDataType_t scale_type = phi::backends::gpu::ToHipBlasLtDataType<MT>();
+    hipDataType mat_type = phi::backends::gpu::ToHipBlasLtDataType<T>();
+    hipDataType scale_type = phi::backends::gpu::ToHipBlasLtDataType<MT>();
     hipblasComputeType_t compute_type = GetHipComputeType<T>();
 
     PADDLE_ENFORCE_GPU_SUCCESS(

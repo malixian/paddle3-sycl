@@ -273,7 +273,7 @@ std::string SYCLBackendAPI::GetGpuVersion() {
       // device.get_info<::sycl::info::device::version>(); size_t pos =
       // gpu_version.find(":"); if (pos != std::string::npos) gpu_version =
       // gpu_version.substr(0, pos);
-      std::string gpu_version = "gfx928";
+      std::string gpu_version = "gfx936";
       return gpu_version;
     }
     default:
