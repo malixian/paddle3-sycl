@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "paddle/cinn/runtime/sycl/sycl_backend_api.h"
+#include <hip/hip_runtime.h>
 #include <glog/logging.h>
 
 namespace cinn {
@@ -110,8 +111,8 @@ void SYCLBackendAPI::set_device(int device_id) {
     this->contexts[device_id] =
         new ::sycl::context(this->devices[device_id]);
     // one device one queue
-    this->queues[device_id].push_back(new ::sycl::queue(
-        *this->contexts[device_id], this->devices[device_id], q_prop));
+    //this->queues[device_id].push_back(new ::sycl::queue(
+    //    *this->contexts[device_id], this->devices[device_id], q_prop));
     initialized_ = true;
   }
   
@@ -260,9 +261,21 @@ void SYCLBackendAPI::stream_sync(void* stream) {
   SYCL_CALL(static_cast<::sycl::queue*>(stream)->wait_and_throw());
 }
 
+::sycl::queue* SYCLBackendAPI::get_now_queue(void* raw_stream) {
+  if (this->queues[now_device_id].size() == 0) {
+    std::cout<<"============ new stream =========="<<std::endl;
+    HIPstream hipStream = static_cast<hipStream_t>(raw_stream);
+    auto Q = ::sycl::make_queue<::sycl::backend::hip>(
+      hipStream, *this->contexts[0]);
+    this->queues[0].push_back(&Q);
+  }
+  return this->queues[now_device_id][0];
+}
+
 ::sycl::queue* SYCLBackendAPI::get_now_queue() {
   return this->queues[now_device_id][0];
 }
+
 
 std::string SYCLBackendAPI::GetGpuVersion() {
   ::sycl::device device = this->devices[now_device_id];

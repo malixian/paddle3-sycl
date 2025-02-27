@@ -42,7 +42,8 @@ void cinn_call_sycl_kernel(void *kernel_fn,
                            int grid_z,
                            int block_x,
                            int block_y,
-                           int block_z) {
+                           int block_z,
+			   void* stream) {
   VLOG(3) << "cinn_call_sycl_kernel, grid_dim={" << grid_x << ", " << grid_y
           << ", " << grid_z << "}, block_dim={" << block_x << ", " << block_y
           << ", " << block_z << "}, num_args=" << num_args;
@@ -52,7 +53,7 @@ void cinn_call_sycl_kernel(void *kernel_fn,
   hipDeviceSynchronize();
   
   std::vector<void *> kernel_args;
-  ::sycl::queue *Queue = SYCLBackendAPI::Global()->get_now_queue();
+  ::sycl::queue *Queue = SYCLBackendAPI::Global()->get_now_queue(stream);
   {
     cinn::utils::RecordEvent record_run("prepare_args",
                                         cinn::utils::EventType::kInstruction);

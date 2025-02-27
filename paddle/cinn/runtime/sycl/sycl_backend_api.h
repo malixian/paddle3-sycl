@@ -99,6 +99,7 @@ class SYCLBackendAPI final : public BackendAPI {
               MemcpyType type) final;
   void device_sync() final;
   void stream_sync(void* stream) final;
+  ::sycl::queue* get_now_queue(void* stream);
   ::sycl::queue* get_now_queue();
   std::string GetGpuVersion();
   std::array<int, 3> get_max_grid_dims(
