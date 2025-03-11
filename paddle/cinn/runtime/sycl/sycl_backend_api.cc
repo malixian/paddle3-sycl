@@ -14,12 +14,13 @@
 
 #include "paddle/cinn/runtime/sycl/sycl_backend_api.h"
 #include <glog/logging.h>
+#include <hip/hip_runtime.h>
+#include <sycl/ext/oneapi/experimental/backend/hip.hpp>
 
 namespace cinn {
 namespace runtime {
 namespace sycl {
 SYCLBackendAPI* SYCLBackendAPI::Global() {
-  //std::cout<<"=========== [CINN Debug], create sycl backend global object ============"<<std::endl;
   static auto* inst = new SYCLBackendAPI();
   return inst;
 }
@@ -71,8 +72,8 @@ void SYCLBackendAPI::Init(Arch arch) {
 }
 
 void SYCLBackendAPI::set_device(int device_id) {
-  //std::cout<<"=========== [CINN Debug], SYCL set device id: <<"<<device_id<<" ============"<<std::endl;
-  /* if (!initialized_) Init(common::UnknownArch{});
+  std::cout<<"=========== [CINN Debug], SYCL set device id: <<"<<device_id<<" ============"<<std::endl;
+  if (!initialized_) Init(common::UnknownArch{});
   if (device_id < 0) {
     LOG(FATAL) << "set valid device id! device id:" << device_id;
   } else if (device_id > this->devices.size() - 1) {
@@ -92,27 +93,11 @@ void SYCLBackendAPI::set_device(int device_id) {
     ::sycl::property_list q_prop{
         ::sycl::property::queue::in_order()};  // In order queue
     // create context and queue
-    this->contexts[device_id] =
-        new ::sycl::context(this->devices[device_id], exception_handler);
+    //this->contexts[device_id] =
+    //    new ::sycl::context(this->devices[device_id], exception_handler);
     // one device one queue
-    this->queues[device_id].push_back(new ::sycl::queue(
-        *this->contexts[device_id], this->devices[device_id], q_prop));
-  } */
-  if (!initialized_) {
-    int device_num = 1;
-    this->devices.resize(device_num);
-    this->devices[device_id] = ::sycl::device(::sycl::gpu_selector());
-    this->contexts.resize(device_num);
-    this->queues.resize(device_num);
-    ::sycl::property_list q_prop{
-        ::sycl::property::queue::in_order()};  // In order queue
-    // create context and queue
-    this->contexts[device_id] =
-        new ::sycl::context(this->devices[device_id]);
-    // one device one queue
-    this->queues[device_id].push_back(new ::sycl::queue(
-        *this->contexts[device_id], this->devices[device_id], q_prop));
-    initialized_ = true;
+    //this->queues[device_id].push_back(new ::sycl::queue(
+    //    *this->contexts[device_id], this->devices[device_id], q_prop));
   }
   
   this->now_device_id = device_id;
@@ -259,6 +244,41 @@ void SYCLBackendAPI::stream_sync(void* stream) {
   VLOG(4) << "sycl stream sync";
   SYCL_CALL(static_cast<::sycl::queue*>(stream)->wait_and_throw());
 }
+
+
+::sycl::queue* SYCLBackendAPI::get_now_queue(void* raw_stream) {
+   if (this->queues[now_device_id].size() == 0) {
+     
+     
+     int current_device_id;
+     hipGetDevice(&current_device_id);
+     hipSetDevice(current_device_id);
+     hipDeviceGet(&device_, current_device_id);
+     hipCtxGetCurrent(&context_);
+     hipDevicePrimaryCtxRetain(&context_, device_);
+ 
+     ::sycl::backend_input_t<::sycl::backend::ext_oneapi_hip, ::sycl::context> InteropContextInput{context_};
+     ::sycl::context InteropContext = ::sycl::make_context<::sycl::backend::ext_oneapi_hip>(InteropContextInput);
+
+     std::cout<<"============ new stream =========="<<std::endl;
+     std::cout<<"raw_stream:"<<raw_stream<<" now_deviec_id:"<<now_device_id<<std::endl;
+     hipStream_t hipStream = static_cast<hipStream_t>(raw_stream);
+     std::cout<<"========== begin make queue =========="<<std::endl;
+     auto Q =  new ::sycl::queue(::sycl::make_queue<::sycl::backend::ext_oneapi_hip>(
+       hipStream, InteropContext));
+     std::cout<<"============ reuse hip stream: "<<&Q<<std::endl;
+     this->queues[now_device_id].push_back(Q);
+     
+     
+     /*
+     ::sycl::property_list q_prop{::sycl::property::queue::in_order()};
+     auto sq = new ::sycl::queue(*this->contexts[now_device_id], this->devices[now_device_id], q_prop);
+     this->queues[now_device_id].push_back(&sq);
+     */
+     
+   }
+   return this->queues[now_device_id][0];
+ }
 
 ::sycl::queue* SYCLBackendAPI::get_now_queue() {
   return this->queues[now_device_id][0];

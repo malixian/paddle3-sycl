@@ -31,7 +31,6 @@ Compiler* Compiler::Global() {
 
 std::string Compiler::operator()(const std::string& code
                                  ) {
-  std::lock_guard<std::mutex> lock(mutex_);
   Arch gpu_type = cinn::common::HygonDCUArchSYCL{};
   return CompileToSo(code, gpu_type);
 }
@@ -76,7 +75,6 @@ std::string Compiler::CompileToSo(const std::string& source_code,
              source_file_path + " -o " + shared_lib_path;
   // compile
   VLOG(2) << "compile command: " << command;
-  std::cout<<command<<std::endl;
   PADDLE_ENFORCE_EQ(system(command.c_str()),
                     0,
                     ::common::errors::External(

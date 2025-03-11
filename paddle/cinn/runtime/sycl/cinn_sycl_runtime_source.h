@@ -516,20 +516,16 @@ inline bool cinn_any(const bool left, const bool right) {
   return left || right;
 }
 
-/* #define CINN_SHUFFLE_FUNCTION(offset, op, init)                          \
-  shfl_res =                                                             \
+#define CINN_SHUFFLE_FUNCTION(offset, op, init)                            \
+  shfl_res =                                                               \
       item_ct1.get_sub_group().shuffle_down(tmp_val, offset);              \
-  if (item_ct1.get_local_id(0)==0 && item_ct1.get_local_id(1)==0)
-  out<<"offset:"<<offset<<" threadIdx:"<<item_ct1.get_local_id(0)<<"
-  threadIdy:"<<item_ct1.get_local_id(1)<<" shfl_res:"<<shfl_res<<"\n";  \
-  tmp_val = op((thread_id + offset < block_dim) ? shfl_res : init, tmp_val); */
+  if (item_ct1.get_local_id(0)==0 && item_ct1.get_local_id(1)==0)          \
+  tmp_val = op((thread_id + offset < block_dim) ? shfl_res : init, tmp_val);
 
-/* #define CINN_WARP_SHUFFLE_INTERNAL_IMPL(REDUCE_TYPE, INITIAL_VALUE, DTYPE) \
+#define CINN_WARP_SHUFFLE_INTERNAL_IMPL(REDUCE_TYPE, INITIAL_VALUE, DTYPE) \
   inline DTYPE cinn_warp_shuffle_##REDUCE_TYPE##_internal(                     \
-      const DTYPE value, const sycl::nd_item<3> &item_ct1, sycl::stream out) { \
+      const DTYPE value, const sycl::nd_item<3> &item_ct1) { \
     DTYPE tmp_val = value, shfl_res = 0.0;                                     \
-    if(item_ct1.get_local_id(0)==0 && item_ct1.get_local_id(1)==0) out<<"value:
-  "<<value<<"\n";\
     unsigned int thread_id = item_ct1.get_local_id(0);                         \
     unsigned int block_dim = item_ct1.get_local_range(0);                      \
     unsigned int lane_id = item_ct1.get_local_linear_id();                     \
@@ -551,9 +547,9 @@ inline bool cinn_any(const bool left, const bool right) {
       }                                                                        \
       return tmp_val;                                                          \
     }                                                                          \
-  } */
+  } 
 
-#define CINN_SHUFFLE_DOWN_FUNCTION(offset, op, init)                           \
+/* #define CINN_SHUFFLE_DOWN_FUNCTION(offset, op, init)                           \
   unsigned int lane_offset_id = lane_id + offset;                              \
   tmp_mem[local_linear_id] = tmp_val;                                          \
   item_ct1.barrier(sycl::access::fence_space::local_space);                    \
@@ -626,7 +622,7 @@ inline bool cinn_any(const bool left, const bool right) {
       return tmp_val;                                                          \
     }                                                                          \
   }
-
+*/
 EXPAND_REDUCE_INT32_MARCO(CINN_WARP_SHUFFLE_INTERNAL_IMPL)
 EXPAND_REDUCE_INT64_MARCO(CINN_WARP_SHUFFLE_INTERNAL_IMPL)
 EXPAND_REDUCE_FP32_MACRO(CINN_WARP_SHUFFLE_INTERNAL_IMPL)

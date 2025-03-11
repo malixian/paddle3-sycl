@@ -20,6 +20,9 @@
 
 #include <CL/sycl.hpp>
 
+#include <hip/hip_runtime.h>
+#include <hip/hiprtc.h>
+
 namespace cinn {
 namespace runtime {
 namespace sycl {
@@ -48,6 +51,9 @@ class SYCLModule {
   //! Kind of the input.
   Kind kind_;
   std::mutex mutex_;
+  
+  hipDevice_t device_;
+  hipCtx_t context_;
 };
 
 }  // namespace sycl

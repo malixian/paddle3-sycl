@@ -18,6 +18,8 @@
 #include <vector>
 #include "paddle/cinn/common/target.h"
 #include "paddle/cinn/runtime/backend_api.h"
+#include <hip/hip_runtime.h>
+
 using cinn::common::Arch;
 
 namespace cinn {
@@ -99,6 +101,7 @@ class SYCLBackendAPI final : public BackendAPI {
               MemcpyType type) final;
   void device_sync() final;
   void stream_sync(void* stream) final;
+  ::sycl::queue* get_now_queue(void* stream);
   ::sycl::queue* get_now_queue();
   std::string GetGpuVersion();
   std::array<int, 3> get_max_grid_dims(
@@ -118,6 +121,8 @@ class SYCLBackendAPI final : public BackendAPI {
   int now_device_id = 0;
   // whether the BackendAPI is initialized.
   bool initialized_{false};
+  hipDevice_t device_;
+  hipCtx_t context_;
 };
 }  // namespace sycl
 }  // namespace runtime

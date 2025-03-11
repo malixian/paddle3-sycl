@@ -42,17 +42,19 @@ void cinn_call_sycl_kernel(void *kernel_fn,
                            int grid_z,
                            int block_x,
                            int block_y,
-                           int block_z) {
+                           int block_z,
+                           int shared_memory_bytes,
+                           void* stream) {
   VLOG(3) << "cinn_call_sycl_kernel, grid_dim={" << grid_x << ", " << grid_y
           << ", " << grid_z << "}, block_dim={" << block_x << ", " << block_y
           << ", " << block_z << "}, num_args=" << num_args;
-  /* std::cout<<" ================= [CINN Debug] getting cinn_call_sycl_kernel, grid_dim={" << grid_x << ", " << grid_y
+  std::cout<<" ================= [CINN Debug] getting cinn_call_sycl_kernel, grid_dim={" << grid_x << ", " << grid_y
           << ", " << grid_z << "}, block_dim={" << block_x << ", " << block_y
-          << ", " << block_z << "}, num_args=" << num_args <<" kernel_fn="<<kernel_fn <<std::endl; */
-  hipDeviceSynchronize();
+          << ", " << block_z << "}, num_args=" << num_args <<" kernel_fn="<<kernel_fn <<" stream="<<stream<<std::endl;
   
   std::vector<void *> kernel_args;
-  ::sycl::queue *Queue = SYCLBackendAPI::Global()->get_now_queue();
+  ::sycl::queue *Queue = SYCLBackendAPI::Global()->get_now_queue(stream);
+  std::cout<<"======== queue: "<<Queue<<std::endl;
   {
     cinn::utils::RecordEvent record_run("prepare_args",
                                         cinn::utils::EventType::kInstruction);
@@ -99,7 +101,9 @@ void cinn_call_sycl_kernel(void *kernel_fn,
     ::sycl::range<3> Block(block_x, block_y, block_z);
     // need malloc_shared
     // LOG(INFO) << "kernel args :" << (float* )(*(void **)(kernel_args[0]))[0]
+    std::cout<<"Begin Kernel Func"<<std::endl;
     SYCL_CALL(kernel_func(*Queue, Grid, Block, kernel_args.data()));
+    std::cout<<"End Kernel Func"<<std::endl;
     /* 
       // [CINN Debug]
       for (int idx = num_args-1; idx > 0; idx--) {

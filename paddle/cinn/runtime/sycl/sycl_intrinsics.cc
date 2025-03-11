@@ -462,6 +462,8 @@ CINN_REGISTER_HELPER(cinn_sycl_host_api) {
       .AddInputType<int>()     // block_x
       .AddInputType<int>()     // block_y
       .AddInputType<int>()     // block_z
+      .AddInputType<int>()     // shared_memory_bytes
+      .AddInputType<void *>()  // stream
       .End();
 
   using cinn::runtime::sycl::cinn_call_sycl_memset;

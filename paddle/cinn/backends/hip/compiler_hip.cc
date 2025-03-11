@@ -159,7 +159,6 @@ std::string Compiler::CompileWithHipcc(const std::string& hip_c) {
   options += " -o " + prefix_name_ + ".hsaco";
   options += " " + prefix_name_ + ".cc";
   VLOG(5) << "hip compile options: " << options;
-  std::cout<<"hip compile options: "<<options<<std::endl;
   system(options.c_str());
   return prefix_name_ + ".hsaco";
 }

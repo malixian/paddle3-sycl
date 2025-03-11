@@ -29,6 +29,13 @@ SYCLModule::SYCLModule(const std::string& source_code,
                        const std::string& shared_library,
                        Kind kind)
     : source_code_(source_code), shared_library_(shared_library), kind_(kind) {
+  
+  int current_device_id;
+  hipGetDevice(&current_device_id);
+  hipSetDevice(current_device_id);
+  hipDeviceGet(&device_, current_device_id);
+  hipCtxGetCurrent(&context_);
+  hipDevicePrimaryCtxRetain(&context_, device_);
   CHECK(!shared_library.empty());
 }
 
