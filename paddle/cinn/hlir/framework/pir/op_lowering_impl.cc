@@ -368,13 +368,16 @@ std::vector<ir::LoweredFunc> OpLowererImpl::PostProcess(
             optim::EliminateCommonGlobalMemoryRead(&(func_body));
             optim::OptimizeExprGPU(&(func_body));
 #endif
-          },
+},
+
           [&](common::HygonDCUArchHIP) {
+
 #ifdef CINN_WITH_HIP
             optim::EliminateCommonGlobalMemoryRead(&(func_body));
             optim::OptimizeExprGPU(&(func_body));
 #endif
           },
+
           [&](common::HygonDCUArchSYCL) {
 #ifdef CINN_WITH_SYCL
             optim::EliminateCommonGlobalMemoryRead(&(func_body));

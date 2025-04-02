@@ -305,7 +305,6 @@ void detail::CollectBucketStrategyHostFunctionVisitor::ProcessLoweredFunc(
                      ir::FunctionRef(),
                      0);
    
-  std::cout<<"call extern api kernel_stream_:"<<kernel_stream_<<std::endl;
   // create memset calls for temp_spaces if needed
   std::vector<ir::Expr> call_kernel_stmts;
   for (auto &temp_space : func_node->temp_spaces) {

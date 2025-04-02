@@ -136,6 +136,7 @@ void CodeGenSyclDevice::Visit(const ir::_LoweredFunc_ *op) {
   DecIndent();
   DoIndent();
   str_ += "}).wait();\n";
+  //str_ += "});\n";
   DecIndent();
   str_ += "}\n";
 }
@@ -149,11 +150,11 @@ void CodeGenSyclDevice::Visit(const ir::_Var_ *op) {
       str_ += "(int)item.get_group(";
     }
     if (utils::EndsWith(op->name, "x")) {
-      str_ += std::to_string(0);
+      str_ += std::to_string(2);
     } else if (utils::EndsWith(op->name, "y")) {
       str_ += std::to_string(1);
     } else if (utils::EndsWith(op->name, "z")) {
-      str_ += std::to_string(2);
+      str_ += std::to_string(0);
     }
     str_ += ")";
   } else {

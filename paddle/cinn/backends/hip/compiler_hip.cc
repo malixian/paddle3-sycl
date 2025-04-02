@@ -158,6 +158,7 @@ std::string Compiler::CompileWithHipcc(const std::string& hip_c) {
   options += " -I " + include_dir_str;
   options += " -o " + prefix_name_ + ".hsaco";
   options += " " + prefix_name_ + ".cc";
+  std::cout<<options<<std::endl;
   VLOG(5) << "hip compile options: " << options;
   system(options.c_str());
   return prefix_name_ + ".hsaco";

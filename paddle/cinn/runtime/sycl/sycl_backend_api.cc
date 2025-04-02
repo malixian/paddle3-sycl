@@ -72,7 +72,6 @@ void SYCLBackendAPI::Init(Arch arch) {
 }
 
 void SYCLBackendAPI::set_device(int device_id) {
-  std::cout<<"=========== [CINN Debug], SYCL set device id: <<"<<device_id<<" ============"<<std::endl;
   if (!initialized_) Init(common::UnknownArch{});
   if (device_id < 0) {
     LOG(FATAL) << "set valid device id! device id:" << device_id;
@@ -80,6 +79,7 @@ void SYCLBackendAPI::set_device(int device_id) {
     LOG(FATAL) << "set valid device id! device id:" << device_id
                << " > max device id:" << this->devices.size() - 1;
   }
+  /*
   if (this->contexts[device_id] == nullptr) {
     auto exception_handler = [](::sycl::exception_list exceptions) {
       for (const std::exception_ptr& e : exceptions) {
@@ -93,13 +93,13 @@ void SYCLBackendAPI::set_device(int device_id) {
     ::sycl::property_list q_prop{
         ::sycl::property::queue::in_order()};  // In order queue
     // create context and queue
-    //this->contexts[device_id] =
-    //    new ::sycl::context(this->devices[device_id], exception_handler);
+    this->contexts[device_id] =
+        new ::sycl::context(this->devices[device_id], exception_handler);
     // one device one queue
-    //this->queues[device_id].push_back(new ::sycl::queue(
-    //    *this->contexts[device_id], this->devices[device_id], q_prop));
+    this->queues[device_id].push_back(new ::sycl::queue(
+        *this->contexts[device_id], this->devices[device_id], q_prop));
   }
-  
+  */
   this->now_device_id = device_id;
 }
 
@@ -135,15 +135,15 @@ int SYCLBackendAPI::get_device_property(DeviceProperty device_property,
       break;
     }
     case DeviceProperty::MaxGridDimX: {
-      rv = 2147483647;
+      rv = 65535;
       break;
     }
     case DeviceProperty::MaxGridDimY: {
-      rv = 2147483647;
+      rv = 65535;
       break;
     }
     case DeviceProperty::MaxGridDimZ: {
-      rv = 2147483647;
+      rv = 65535;
       break;
     }
     case DeviceProperty::MaxSharedMemoryPerBlock: {
@@ -245,10 +245,8 @@ void SYCLBackendAPI::stream_sync(void* stream) {
   SYCL_CALL(static_cast<::sycl::queue*>(stream)->wait_and_throw());
 }
 
-
 ::sycl::queue* SYCLBackendAPI::get_now_queue(void* raw_stream) {
    if (this->queues[now_device_id].size() == 0) {
-     
      
      int current_device_id;
      hipGetDevice(&current_device_id);
@@ -260,20 +258,25 @@ void SYCLBackendAPI::stream_sync(void* stream) {
      ::sycl::backend_input_t<::sycl::backend::ext_oneapi_hip, ::sycl::context> InteropContextInput{context_};
      ::sycl::context InteropContext = ::sycl::make_context<::sycl::backend::ext_oneapi_hip>(InteropContextInput);
 
-     std::cout<<"============ new stream =========="<<std::endl;
-     std::cout<<"raw_stream:"<<raw_stream<<" now_deviec_id:"<<now_device_id<<std::endl;
      hipStream_t hipStream = static_cast<hipStream_t>(raw_stream);
-     std::cout<<"========== begin make queue =========="<<std::endl;
      auto Q =  new ::sycl::queue(::sycl::make_queue<::sycl::backend::ext_oneapi_hip>(
        hipStream, InteropContext));
-     std::cout<<"============ reuse hip stream: "<<&Q<<std::endl;
      this->queues[now_device_id].push_back(Q);
      
-     
      /*
-     ::sycl::property_list q_prop{::sycl::property::queue::in_order()};
+     auto exception_handler = [](::sycl::exception_list exceptions) {
+       for (const std::exception_ptr& e : exceptions) {
+         try {
+           std::rethrow_exception(e);
+         } catch (const ::sycl::exception& e) {
+             LOG(INFO) << "Caught asynchronous SYCL exception:\n" << e.what();
+            }
+          }
+     };   
+     this->contexts[now_device_id] = new ::sycl::context(this->devices[now_device_id], exception_handler);
+     ::sycl::property_list q_prop{::sycl::ext::oneapi::property::queue::discard_events{}, ::sycl::property::queue::in_order{}};
      auto sq = new ::sycl::queue(*this->contexts[now_device_id], this->devices[now_device_id], q_prop);
-     this->queues[now_device_id].push_back(&sq);
+     this->queues[now_device_id].push_back(sq);
      */
      
    }
@@ -316,7 +319,7 @@ std::array<int, 3> SYCLBackendAPI::get_max_block_dims(
 std::array<int, 3> SYCLBackendAPI::get_max_grid_dims(
     std::optional<int> device_id) {
   std::array<int, 3> kMaxGridDims;
-  kMaxGridDims = std::array<int, 3>{2147483647, 2147483647, 2147483647};
+  kMaxGridDims = std::array<int, 3>{65535, 65535, 65535};
   return kMaxGridDims;
 }
 

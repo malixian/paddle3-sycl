@@ -40,9 +40,11 @@ void cinn_call_hip_kernel(void *kernel_fn,
           << ", stream=" << stream << ", kernel_fn=" << kernel_fn
           << " in device" << current_device_id;
   
+  /* 
   std::cout<<" ================= [CINN Debug] getting cinn_call_hip_kernel, grid_dim={" << grid_x << ", " << grid_y
           << ", " << grid_z << "}, block_dim={" << block_x << ", " << block_y
           << ", " << block_z  << "}, num_args=" << num_args<< ", shared_memory_bytes=" << shared_memory_bytes << ", stream=" << stream<<" kernel_fn="<<kernel_fn<<std::endl;
+  */
   std::vector<void *> kernel_args;
   {
     cinn::utils::RecordEvent record_run("prepare_args",
@@ -53,14 +55,15 @@ void cinn_call_hip_kernel(void *kernel_fn,
       if (args[idx].type_code() == ::cinn_type_code<cinn_buffer_t *>()) {
         kernel_args.emplace_back(
             &((cinn_buffer_t *)(args[idx]))->memory);  // NOLINT
-      
-        /* float *host_array_in = new float[10];
+        /*
+        float *host_array_in = new float[10];
         hipMemcpy(host_array_in, (float* )(*(void **)(kernel_args[idx])), 10 * sizeof(float), hipMemcpyDeviceToHost); 
         std::cout<<" ================= [CINN Debug] get hip memory input: "<<kernel_args[idx]<<std::endl;
         for (size_t i = 0; i < 10; ++i) {
             std::cout << host_array_in[i] << " ";
         }
-        std::cout << std::endl; */
+        std::cout << std::endl;
+        */
         
       } else {
         kernel_args.emplace_back(args[idx].data_addr());
@@ -81,9 +84,10 @@ void cinn_call_hip_kernel(void *kernel_fn,
                               shared_memory_bytes,
                               static_cast<hipStream_t>(stream),
                               kernel_args.data(),
-                              nullptr))
-    
-    /* for (int idx = num_args-1; idx >0; idx--) {
+                              nullptr));
+    //hipStreamSynchronize(static_cast<hipStream_t>(stream));   
+    /*
+    for (int idx = num_args-1; idx >0; idx--) {
       float *host_array_out = new float[10];
       hipMemcpy(host_array_out, (float* )(*(void **)(kernel_args[idx])), 10 * sizeof(float), hipMemcpyDeviceToHost); 
       std::cout<<" ================= [CINN Debug] get hip memory output addr: "<<kernel_args[idx]<<std::endl;
@@ -91,7 +95,8 @@ void cinn_call_hip_kernel(void *kernel_fn,
           std::cout << host_array_out[i] << " ";
       }
     }
-    std::cout << std::endl; */
+    std::cout << std::endl;
+    */
 
   }
 }

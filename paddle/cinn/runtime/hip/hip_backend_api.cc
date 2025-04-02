@@ -124,7 +124,7 @@ int HIPBackendAPI::get_device_property(DeviceProperty device_property,
 }
 
 void* HIPBackendAPI::malloc(size_t numBytes) {
-  std::cout<<"=============== [CINN Debug] hip malloc ========="<<std::endl;
+  //std::cout<<"=============== [CINN Debug] hip malloc ========="<<std::endl;
   void* dev_mem = nullptr;
   HIP_CHECK(hipMalloc(&dev_mem, numBytes));
   return dev_mem;

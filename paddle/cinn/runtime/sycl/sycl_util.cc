@@ -28,8 +28,6 @@
 #include <CL/sycl/backend/cnrt.hpp>
 #endif
 
-#include <hip/hip_runtime.h>
-
 namespace cinn {
 namespace runtime {
 namespace sycl {
@@ -48,13 +46,13 @@ void cinn_call_sycl_kernel(void *kernel_fn,
   VLOG(3) << "cinn_call_sycl_kernel, grid_dim={" << grid_x << ", " << grid_y
           << ", " << grid_z << "}, block_dim={" << block_x << ", " << block_y
           << ", " << block_z << "}, num_args=" << num_args;
+  /* 
   std::cout<<" ================= [CINN Debug] getting cinn_call_sycl_kernel, grid_dim={" << grid_x << ", " << grid_y
           << ", " << grid_z << "}, block_dim={" << block_x << ", " << block_y
           << ", " << block_z << "}, num_args=" << num_args <<" kernel_fn="<<kernel_fn <<" stream="<<stream<<std::endl;
-  
+  */
   std::vector<void *> kernel_args;
   ::sycl::queue *Queue = SYCLBackendAPI::Global()->get_now_queue(stream);
-  std::cout<<"======== queue: "<<Queue<<std::endl;
   {
     cinn::utils::RecordEvent record_run("prepare_args",
                                         cinn::utils::EventType::kInstruction);
@@ -97,13 +95,11 @@ void cinn_call_sycl_kernel(void *kernel_fn,
                   ::sycl::range<3> k0_dimBlock,
                   void **void_args))(kernel_fn);
     //::sycl::queue *Queue = SYCLBackendAPI::Global()->get_now_queue();
-    ::sycl::range<3> Grid(grid_x, grid_y, grid_z);
-    ::sycl::range<3> Block(block_x, block_y, block_z);
+    ::sycl::range<3> Grid(grid_z, grid_y, grid_x);
+    ::sycl::range<3> Block(block_z, block_y, block_x);
     // need malloc_shared
     // LOG(INFO) << "kernel args :" << (float* )(*(void **)(kernel_args[0]))[0]
-    std::cout<<"Begin Kernel Func"<<std::endl;
     SYCL_CALL(kernel_func(*Queue, Grid, Block, kernel_args.data()));
-    std::cout<<"End Kernel Func"<<std::endl;
     /* 
       // [CINN Debug]
       for (int idx = num_args-1; idx > 0; idx--) {

@@ -18,5 +18,6 @@
 #ifdef CINN_WITH_HIP
 CINN_USE_REGISTER(cinn_hip_host_api)
 CINN_USE_REGISTER(hip_intrinsics)
+CINN_USE_REGISTER(hip_intrinsics_float16)
 CINN_USE_REGISTER(hip_intrinsics_reduce)
 #endif

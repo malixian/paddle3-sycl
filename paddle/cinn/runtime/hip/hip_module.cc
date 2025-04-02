@@ -91,6 +91,7 @@ hipFunction_t HIPModule::GetFunction(int device_id,
   hipFunction_t func;
   HIP_DRIVER_CHECK(hipModuleGetFunction(
       &func, module_per_card_[device_id], func_name.c_str()));
+  //std::cout<<" ================= [CINN Debug] getting function name: "<<func_name<<"kernel_fn: "<<reinterpret_cast<void*>(func)<<std::endl;
   return func;
 }
 
